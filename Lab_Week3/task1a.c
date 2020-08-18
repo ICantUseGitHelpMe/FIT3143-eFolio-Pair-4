@@ -26,7 +26,8 @@
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
-#define THREAD_COUNT 4;
+#include <sys/time.h>
+#define THREAD_COUNT 4
 // Function prototypes
 void file_append(int out);
 void file_clear();
@@ -43,19 +44,24 @@ void main(void){
 	char input_value[100] = "";
 	
     int n_integer_boolean, prime_boolean;
-    struct timespec start, end, startComp, endComp; 
 	double time_taken; 
     int n;
+
+    struct timeval start, middle, stop;
+
 
     printf("Enter an integer: \n");
     scanf("%d", &n);
     // Cast numeric character into integer
+    
+    gettimeofday(&start, NULL);
+
     n = (int)n;
 	
 
 	file_clear();  // Create / clear the file
-    time_t beginning;
-    time_t time(time_t *beginning);
+
+    gettimeofday(&middle, NULL);
 
 	for (int iterative_integer = 2; iterative_integer < n; iterative_integer++) {
         prime_boolean = is_prime(iterative_integer);
@@ -64,6 +70,15 @@ void main(void){
 			file_append(iterative_integer);
         }
     }
+
+    gettimeofday(&stop, NULL);
+    int max, comp;
+    max = (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec;
+    comp = (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec;
+    printf("Time taken: %lu microseconds\n", (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec);
+    printf("Comp time taken: %lu microseconds\n", (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec);
+    printf("Time in seconds: %f\n", max*1e-6);
+    printf("Max Speedup: %f\n", 1 / (((float)(max-comp)/max) + (((float)comp/max)/THREAD_COUNT) ) );
 
     // prime_boolean = is_prime(n);
     // if (prime_boolean == 0){
@@ -76,27 +91,7 @@ void main(void){
     // Get the clock current time again
 	// Subtract end from start to get the CPU time used.
 
-    time_t end_proc;
-    time_t time(time_t *end_proc);
 
-	printf("Computation Time: %d", difftime(end_proc, beginning)); // portion of the computing time of ts
-
-
-	// Write to file
-	printf("Commence Writing\n");
-	// WriteToFile("VC.txt", pArrayNum3, row1, col1);
-	// printf("Write complete\n");
-	// free(pArrayNum1);
-	// free(pArrayNum2);
-	// free(pArrayNum3);
-	
-	// Get the clock current time again
-	// Subtract end from start to get the CPU time used.
-
-    time_t end_algo;
-    time_t time(time_t *end_algo);
-
-	printf("Total Time: %d", difftime(end_algo, beginning)); // portion of the computing time of ts
 
 }
 
