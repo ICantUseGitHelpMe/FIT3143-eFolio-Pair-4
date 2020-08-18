@@ -2,8 +2,8 @@
  * Lab Time         Tuesday 18:00-20:00
  * Lab ID           6
  * Pair Number      4
- * Group Members    Philip Chen 27833725
- *                  asdf        12345
+ * Group Members    Philip Chen 	27833725
+ *                  Ethan Nardella	29723299
  * --------------------------------------------------
  * Lab 3 - Task 1a
  *      Write a serial C program to search for prime 
@@ -25,9 +25,9 @@
 #include <time.h>
 #include <string.h>
 #include <math.h>
-
+#include <ctype.h>
 // Function prototypes
-void write_to_file(char *pFilename, int *pMatrix, int inRow, int inCol);
+void file_save(int out);
 int is_prime(int input_integer);
 
 // create main function
@@ -39,23 +39,42 @@ int is_prime(int input_integer);
 // close timer
 void main(void){
 	char input_value[100] = "";
-    int n, n_integer_boolean, prime_boolean;
+	
+    int n_integer_boolean, prime_boolean;
     struct timespec start, end, startComp, endComp; 
 	double time_taken; 
 
-    // Get current clock time.
-	clock_gettime(CLOCK_MONOTONIC, &start);
 
     printf("Enter an integer: \n");
-    scanf("%i", &n);
+    scanf("%d", &n);
+    int is_digit = isdigit(n);
+    while( is_digit == 0 ){
+        printf("-----");
+        //printf("Input was not an integer, please enter an integer: \n");
+        scanf("%d", &n);
+    }
+    // Cast numeric character into integer
+    n = (int)n;
+	
+    // Get current clock time.
+	clock_gettime(CLOCK_MONOTONIC, &start);
+	
+	for (int iterative_integer = 2; iterative_integer < n; iterative_integer++) {
+        prime_boolean = is_prime(iterative_integer);
+        if (prime_boolean == 1){
+            //printf("%d \n", iterative_integer); // change to write
+			file_save(iterative_integer);
+        }
+    }
 
-    prime_boolean = is_prime(n);
-    if (prime_boolean == 0){
-        printf("Integer is not prime");
-    }
-    else {
-        printf("Integer is prime");
-    }
+    // prime_boolean = is_prime(n);
+    // if (prime_boolean == 0){
+    //     printf("Integer is not prime\n");
+    // }
+    // else {
+    //     printf("Integer is prime\n");
+    // }
+	
     // Get the clock current time again
 	// Subtract end from start to get the CPU time used.
 	clock_gettime(CLOCK_MONOTONIC, &endComp); 
@@ -66,11 +85,11 @@ void main(void){
 
 	// Write to file
 	printf("Commence Writing\n");
-	WriteToFile("VC.txt", pArrayNum3, row1, col1);
-	printf("Write complete\n");
-	free(pArrayNum1);
-	free(pArrayNum2);
-	free(pArrayNum3);
+	// WriteToFile("VC.txt", pArrayNum3, row1, col1);
+	// printf("Write complete\n");
+	// free(pArrayNum1);
+	// free(pArrayNum2);
+	// free(pArrayNum3);
 	
 	// Get the clock current time again
 	// Subtract end from start to get the CPU time used.
@@ -80,19 +99,19 @@ void main(void){
 	printf("Overall time (Including read, product and write)(s): %lf\n", time_taken);	// ts
 }
 
-// Function definition
-void write_to_file(char *pFilename, int *pMatrix, int inRow, int inCol)
-{
-	int i, j;
-	FILE *pFile = fopen(pFilename, "w");
-	fprintf(pFile, "%d\t%d\n", inRow, inCol);
-	for(i = 0; i < inRow; i++){
-	    for(j = 0; j < inCol; j++){
-		fprintf(pFile, "%d\t", pMatrix[(i * inCol) + j]);
-		}
-		fprintf(pFile, "\n");
+//File output:
+void file_save (int out){
+	FILE *output;
+	output = fopen("./task_1_output.txt", "a");
+
+	if(output == NULL){
+		printf("ERROR");
+		exit(1);
 	}
-	fclose(pFile);
+
+	fprintf(output, "%d", out);
+	fclose(output);
+
 }
 
 // Function for determining whether or not a number is prime
