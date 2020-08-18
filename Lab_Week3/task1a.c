@@ -26,8 +26,10 @@
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
+#define THREAD_COUNT 4;
 // Function prototypes
-void file_save(int out);
+void file_append(int out);
+void file_clear();
 int is_prime(int input_integer);
 
 // create main function
@@ -43,27 +45,23 @@ void main(void){
     int n_integer_boolean, prime_boolean;
     struct timespec start, end, startComp, endComp; 
 	double time_taken; 
-
+    int n;
 
     printf("Enter an integer: \n");
     scanf("%d", &n);
-    int is_digit = isdigit(n);
-    while( is_digit == 0 ){
-        printf("-----");
-        //printf("Input was not an integer, please enter an integer: \n");
-        scanf("%d", &n);
-    }
     // Cast numeric character into integer
     n = (int)n;
 	
-    // Get current clock time.
-	clock_gettime(CLOCK_MONOTONIC, &start);
-	
+
+	file_clear();  // Create / clear the file
+    time_t beginning;
+    time_t time(time_t *beginning);
+
 	for (int iterative_integer = 2; iterative_integer < n; iterative_integer++) {
         prime_boolean = is_prime(iterative_integer);
         if (prime_boolean == 1){
             //printf("%d \n", iterative_integer); // change to write
-			file_save(iterative_integer);
+			file_append(iterative_integer);
         }
     }
 
@@ -77,10 +75,11 @@ void main(void){
 	
     // Get the clock current time again
 	// Subtract end from start to get the CPU time used.
-	clock_gettime(CLOCK_MONOTONIC, &endComp); 
-	time_taken = (endComp.tv_sec - startComp.tv_sec) * 1e9; 
-    	time_taken = (time_taken + (endComp.tv_nsec - startComp.tv_nsec)) * 1e-9; 
-	printf("Cell product complete - Computational time only(s): %lf\n", time_taken); // portion of the computing time of ts
+
+    time_t end_proc;
+    time_t time(time_t *end_proc);
+
+	printf("Computation Time: %d", difftime(end_proc, beginning)); // portion of the computing time of ts
 
 
 	// Write to file
@@ -93,14 +92,16 @@ void main(void){
 	
 	// Get the clock current time again
 	// Subtract end from start to get the CPU time used.
-	clock_gettime(CLOCK_MONOTONIC, &end); 
-	time_taken = (end.tv_sec - start.tv_sec) * 1e9; 
-    	time_taken = (time_taken + (end.tv_nsec - start.tv_nsec)) * 1e-9; 
-	printf("Overall time (Including read, product and write)(s): %lf\n", time_taken);	// ts
+
+    time_t end_algo;
+    time_t time(time_t *end_algo);
+
+	printf("Total Time: %d", difftime(end_algo, beginning)); // portion of the computing time of ts
+
 }
 
 //File output:
-void file_save (int out){
+void file_append (int out){
 	FILE *output;
 	output = fopen("./task_1_output.txt", "a");
 
@@ -109,7 +110,21 @@ void file_save (int out){
 		exit(1);
 	}
 
-	fprintf(output, "%d", out);
+	fprintf(output, "%d\n", out);
+	fclose(output);
+
+}
+
+//File clear:
+void file_clear (){
+	FILE *output;
+	output = fopen("./task_1_output.txt", "w");
+
+	if(output == NULL){
+		printf("ERROR");
+		exit(1);
+	}
+
 	fclose(output);
 
 }
