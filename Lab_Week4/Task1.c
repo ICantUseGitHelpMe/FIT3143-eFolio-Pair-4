@@ -54,20 +54,22 @@ int main(){
     for (int i = 0; i < DIGITS; i++){                                   // For each element in the defined number array
         numbers[i] = (rand() % MAX_NUM) + 1;                            // Generate random values between 1 and 10
         printf("Current Thread: %d, Current index: %d, Number: %d\n", omp_get_thread_num(), i, numbers[i]);
-    }                                                                   // Joining
-                                                                      
+    }                                                                   // Implicit Joining
+    
+    printf("----------------\n");
+                                                              
     for (int i = 0; i < DIGITS; i++){
         occurrences[numbers[i] - 1] = occurrences[numbers[i] - 1] + 1;  // Increment the number of occurrences for the number, where index = the number.  
                                                                         // Subtract 1 as the arrays are zero-indexed
+        printf("%d ", numbers[i]);                                      // Print the 10-digit display
+
     }
 
     int wins = 0;                                                       // Define variable for number of wins
-    printf("----------------\n");
-    for (int i = 0; i < DIGITS; i++){                                   // For counter i from 0 to 10
+    for (int i = 0; i < MAX_NUM; i++){                                   // For counter i from 0 to 10
         if (occurrences[i] > 1){                                        // If occurrences is greater than 1
             wins++;                                                     // Increment number of wins
         }
-        printf("%d ", numbers[i]);                                      // Print the 10-digit display
     }
 
     printf("\nThere are %d wins!\n", wins);                             // Print the number of wins
