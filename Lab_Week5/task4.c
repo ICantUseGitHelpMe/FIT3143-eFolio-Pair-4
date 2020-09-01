@@ -54,7 +54,7 @@ int main(int argc, char** argv){
     int output_va;
     double output_vb;
 
-
+    int checker = 0;
     //Make relative
     disp[1]=disp[1]-disp[0];
     disp[0]=0;
@@ -71,24 +71,27 @@ int main(int argc, char** argv){
             MPI_Pack(&values, 1, Valuetype, outbuf, 100, &pos, MPI_COMM_WORLD);  // Pack up the data and store it in the buffer
         }
 
-        if (myrank == 0){
-            printf("Test 1");
-        }
+
         MPI_Bcast(outbuf, 2, Valuetype, 0, MPI_COMM_WORLD);  // Send the data and output it
 
+
+
         if (myrank == 0){
-            printf("Test 2");
+            printf("Rank: %d. values.a = %d. values.b = %lf\n", myrank, values.a, values.b);
+            checker = values.a;
         }
-
-
         
         MPI_Unpack(outbuf, 100, &pos, &values, 1, Valuetype, MPI_COMM_WORLD);
         
-        printf("Rank: %d. values.a = %d. values.b = %lf\n", myrank, values.a, values.b);
+
+        if (myrank != 0){
+        
+            printf("Rank: %d. values.a = %d. values.b = %lf\n", myrank, values.a, values.b);
+        }
         fflush(stdout);
 
         
-    } while(values.a > 0);
+    } while(checker > 0);
 
     /* Clean up the type */
     MPI_Type_free(&Valuetype);  
