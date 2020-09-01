@@ -35,6 +35,7 @@ struct valuestruct {
 };
 int main(int argc, char** argv){
     struct valuestruct values;  // Prepare the struct with MPI data types
+    
     int myrank;
     MPI_Datatype Valuetype;
     MPI_Datatype type[2] = { MPI_INT, MPI_DOUBLE };
@@ -66,30 +67,25 @@ int main(int argc, char** argv){
             printf("Enter an round number (>0) & a real number: ");
             fflush(stdout);
             scanf("%d%lf", &values.a, &values.b);
-            pos = 0;
-            printf("%d\n%lf", values.a, values.b);
-            MPI_Pack(&values.a, 1, MPI_INT, outbuf, 100, &pos, MPI_COMM_WORLD);  // Pack up the data and store it in the buffer
-            MPI_Pack(&values.b, 1, MPI_DOUBLE, outbuf, 100, &pos, MPI_COMM_WORLD);  // Pack up the data and store it in the buffer
-    
+
+            MPI_Pack(&values, 1, Valuetype, outbuf, 100, &pos, MPI_COMM_WORLD);  // Pack up the data and store it in the buffer
         }
 
-        pos = 0;
-        MPI_Bcast(outbuf, 2, MPI_PACKED, 0, MPI_COMM_WORLD);  // Send the data and output it
+        if (myrank == 0){
+            printf("Test 1");
+        }
+        MPI_Bcast(outbuf, 2, Valuetype, 0, MPI_COMM_WORLD);  // Send the data and output it
 
-        MPI_Unpack(outbuf, 100, &pos, &values.a, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Unpack(outbuf, 100, &pos, &values.b, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+        if (myrank == 0){
+            printf("Test 2");
+        }
+
+        
+        MPI_Unpack(outbuf, 100, &pos, &values, 1, Valuetype, MPI_COMM_WORLD);
         
         printf("Rank: %d. values.a = %d. values.b = %lf\n", myrank, values.a, values.b);
         fflush(stdout);
-        // if (myrank == 1){
-        // for ( int i = 0; i < 10; i++){
-        //     printf("%d\n", outbuf[i]);
-        // }}
-        // printf("--we34443----");
-        // if (myrank == 0){
-        //             for ( int i = 0; i < 10; i++){
-        //     printf("%d\n", packbuf[i]);
-        // }}
+
         
     } while(values.a > 0);
 
