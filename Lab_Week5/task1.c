@@ -13,3 +13,8 @@ char **argv;
     MPI_Finalize();  // Stop MPI sending messages.
     return 0;
 }
+
+/* Run with:
+mpicc task1.c -o task1_out
+mpirun -np 4 ./task1_out 
+*/
