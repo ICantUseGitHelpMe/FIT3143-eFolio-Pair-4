@@ -76,8 +76,8 @@ int main(int argc, char** argv){
         pos = 0;
         MPI_Bcast(outbuf, 2, MPI_PACKED, 0, MPI_COMM_WORLD);  // Send the data and output it
 
-        MPI_Unpack(outbuf, 100, &pos, &values.a, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Unpack(outbuf, 100, &pos, &values.b, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+        MPI_Unpack(&values.a, 100, &pos, outbuf, 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Unpack(&values.b, 100, &pos, outbuf, 1, MPI_DOUBLE, MPI_COMM_WORLD);
         
         printf("Rank: %d. values.a = %d. values.b = %lf\n", myrank, values.a, values.b);
         fflush(stdout);
