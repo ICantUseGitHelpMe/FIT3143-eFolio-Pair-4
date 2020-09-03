@@ -26,75 +26,59 @@
  * MPI_Pack MPI_Unpack MPI_Bcast
  */
 #include <stdio.h>
-#include <stdlib.h>
 #include <mpi.h>
 
+// Create new struct
 struct valuestruct {
     int a;
     double b;
 };
+
 int main(int argc, char** argv){
-    struct valuestruct values;  // Prepare the struct with MPI data types
+    // Initialize environment variables
+    struct valuestruct values;                      // Declare struct for storing int and double
+    int myrank, pos, psize;                         // Declare integer to store rank, position, and packsize
+    char packbuf[100];                              // Declare buffer for packing and broadcast
     
-    int myrank;
-    MPI_Datatype Valuetype;
+    // Define new MPI datatype for struct
+    MPI_Datatype Valuetype;                         
     MPI_Datatype type[2] = { MPI_INT, MPI_DOUBLE };
-    int blocklen[2] = { 1, 1};
+    int blocklen[2] = { 1, 1 };                     
     MPI_Aint disp[2];
 
-
-    MPI_Init(&argc, &argv);  // Initialise MPI and get the relevant thread details
+    // Initialise MPI and get the relevant thread details
+    MPI_Init(&argc, &argv);  
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     MPI_Get_address(&values.a, &disp[0]);
     MPI_Get_address(&values.b, &disp[1]);
-
-    char packbuf[100];  // Initialise the buffer for sending
-    char outbuf[100];  // Initialise the buffer for sending
-    int pos = 0;
-    int output_va;
-    double output_vb;
-
-    int checker = 0;
-    //Make relative
-    disp[1]=disp[1]-disp[0];
-    disp[0]=0;
+    
     // Create MPI struct
+    disp[1]=disp[1]-disp[0];
+    disp[0]=0;    
     MPI_Type_create_struct(2, blocklen, disp, type, &Valuetype);
     MPI_Type_commit(&Valuetype);
-    do{
 
-        if (myrank == 0){  // Main thread code
-            printf("Enter an round number (>0) & a real number: ");
+    do{
+        if (myrank == 0){                                                               // Main thread code
+            printf("\nEnter an round number (>0) & a real number: ");                   // Request for integer and double input
             fflush(stdout);
             scanf("%d%lf", &values.a, &values.b);
-
-            MPI_Pack(&values, 1, Valuetype, outbuf, 100, &pos, MPI_COMM_WORLD);  // Pack up the data and store it in the buffer
+            psize = 0;                                                                  // Initialize MPI_Pack size integer
+            MPI_Pack(&values, 1, Valuetype, packbuf, 100, &psize, MPI_COMM_WORLD);      // Pack struct into buffer
         }
 
-
-        MPI_Bcast(outbuf, 2, Valuetype, 0, MPI_COMM_WORLD);  // Send the data and output it
-
-
-
-        if (myrank == 0){
-            printf("Rank: %d. values.a = %d. values.b = %lf\n", myrank, values.a, values.b);
-            checker = values.a;
+        MPI_Bcast(&psize, 1, MPI_INT, 0, MPI_COMM_WORLD);                               // Broadcast pack size variable
+        MPI_Bcast(packbuf, 100, MPI_PACKED, 0, MPI_COMM_WORLD);                         // Broadcast buffer
+        
+        if (myrank !=0){                                                                // Code for other threads
+            pos = 0;                                                                    // Initialize position integer
+            MPI_Unpack(packbuf, psize, &pos, &values, 1, Valuetype, MPI_COMM_WORLD);    // Unpack broadcasted buffer using broadcaster pack size
         }
-        
-        MPI_Unpack(outbuf, 100, &pos, &values, 1, Valuetype, MPI_COMM_WORLD);
-        
 
-        if (myrank != 0){
-        
-            printf("Rank: %d. values.a = %d. values.b = %lf\n", myrank, values.a, values.b);
-        }
-        fflush(stdout);
+        printf("Rank: %d. value.a = %d. value.b = %lf\n", myrank, values.a, values.b);  // Print rank, value.a, and value.b
+    } while(values.a > 0);                                                              // Loop as long as the input integer is greater than 0
 
-        
-    } while(checker > 0);
-
-    /* Clean up the type */
-    MPI_Type_free(&Valuetype);  
-    MPI_Finalize(); // Finish up with MPI and close it
+    MPI_Type_free(&Valuetype);                                                          // Clean up MPI datatype
+    MPI_Finalize();                                                                     // Finish up with MPI and close it
     return 0;
 }
