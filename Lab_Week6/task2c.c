@@ -33,12 +33,14 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <mpi.h>
+
 
 #define THREAD_COUNT 4
 
 // Function prototypes
-void file_append(int out);
-void file_clear();
+void file_append(int out, int thread);
+void file_clear(int thread);
 int is_prime(int input_integer);
 void *ThreadFunc(void *pArg); // POSIX thread function format
 
@@ -47,49 +49,74 @@ int n, prime_boolean;
 pthread_t thread_id[THREAD_COUNT]; 
 int thread_number[THREAD_COUNT];
 
-void main(void){	
+int main(int argc, char **argv){
+
     int n_integer_boolean;
     struct timeval start, middle, stop;
 	double time_taken; 
 
-    printf("Enter an integer: \n");
-    scanf("%d", &n);
-    gettimeofday(&start, NULL);
 
-    // Cast numeric character into integer
-    n = (int)n;
-
-    file_clear();
-
+    int my_rank, size;
     gettimeofday(&middle, NULL);
 
-    // Fork		
-	for (int thread_counter = 0; thread_counter < THREAD_COUNT; thread_counter++)
-	{
-        thread_number[thread_counter] = thread_counter;
-		pthread_create(&thread_id[thread_counter], 0, ThreadFunc, &thread_number[thread_counter]);
-	}
-	// Join
-	for(int thread_counter = 0; thread_counter < THREAD_COUNT; thread_counter++)
-	{
-        pthread_join(thread_id[thread_counter], NULL);
-	}
+    MPI_Init(&argc, &argv);     // Initialise MPI and get the required constants (size and current rank)
+	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+
+    if (my_rank == 0)
+    {
+        printf("Enter an integer: \n");
+        fflush(stdout);
+        scanf("%d", &n);
+        gettimeofday(&start, NULL);
+
+        // Cast numeric character into integer
+        n = (int)n;
+
+        for (int ranks = 0; ranks < size; ranks++){ // Create and empty all the files we output to
+
+            file_clear(ranks);
+        }
+    }
+
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);  // Send the data and output it
+	// Parallel implementation
+    int chunk = n/size;     // Calculate the bounds for each process (e.g.0 - 25M, 25M - 50M, etc.)
+    int min = chunk * my_rank;
+    int max_chunk = min + chunk;
+    for(int i = min; i < max_chunk; i++){ // Perform the operations
+        if (is_prime(i)){
+            file_append(i, my_rank);
+        }
+    }
+    if (my_rank == 0)
+    {
+        gettimeofday(&stop, NULL);
+        int max, comp;
+        max = (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec;
+        comp = (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec;
+        // printf("Time taken: %lu microseconds\n", (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec);
+        // printf("Comp time taken: %lu microseconds\n", (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec);
+        printf("Time in seconds: %f\n", max*1e-6);
+    
+    }
+	MPI_Finalize();     // Finish up with MPI
 
 
 
-    gettimeofday(&stop, NULL);
-    int max, comp;
-    max = (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec;
-    comp = (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec;
-    printf("Time taken: %lu microseconds\n", (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec);
-    printf("Comp time taken: %lu microseconds\n", (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec);
-    printf("Time in seconds: %f\n", max*1e-6);
+    return 0;
 }
 
 //File output:
-void file_append (int out){
+void file_append (int out, int thread){
 	FILE *output;
-	output = fopen("./task_1_output.txt", "a");
+
+    char * outputFileBuffer;
+    outputFileBuffer = malloc(sizeof(char) * 256);
+    strcpy(outputFileBuffer, "");
+    snprintf(outputFileBuffer, sizeof(char) * 256, "task_2_output_%d.txt", thread);
+    output = fopen(outputFileBuffer, "a");
 
 	if(output == NULL){
 		printf("ERROR");
@@ -102,9 +129,14 @@ void file_append (int out){
 }
 
 //File clear:
-void file_clear (){
+void file_clear (int thread){
 	FILE *output;
-	output = fopen("./task_1_output.txt", "w");
+    
+    char * outputFileBuffer;
+    outputFileBuffer = malloc(sizeof(char) * 256);
+    strcpy(outputFileBuffer, "");
+    snprintf(outputFileBuffer, sizeof(char) * 256, "task_2_output_%d.txt", thread);
+    output = fopen(outputFileBuffer, "w");
 
 	if(output == NULL){
 		printf("ERROR");
@@ -138,27 +170,3 @@ int is_prime(int input_integer){
     }
 }
 
-// Thread function
-void *ThreadFunc(void *pArg)
-{
-	int i, j;
-	int my_rank = *((int*)pArg);
-	printf("Thread %d\n", my_rank);
-	
-	int integers_per_thread = n / THREAD_COUNT; 
-	int integers_per_thread_remainder = n % THREAD_COUNT; 
-	
-	int start_point = my_rank * integers_per_thread; 
-	int end_point = start_point + integers_per_thread; 
-	if(my_rank == THREAD_COUNT - 1)
-		end_point += integers_per_thread_remainder;
-	
-    for (int iterative_integer = start_point; iterative_integer < end_point; iterative_integer++) {
-        prime_boolean = is_prime(iterative_integer);
-        if (prime_boolean == 1){
-            //printf("%d \n", iterative_integer); // change to write
-			file_append(iterative_integer);
-        }
-    }
-	return NULL;
-}

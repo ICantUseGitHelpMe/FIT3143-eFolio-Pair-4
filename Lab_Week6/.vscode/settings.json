@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "random": "c",
+        "limits": "c",
+        "algorithm": "c",
+        "type_traits": "c"
+    }
+}
