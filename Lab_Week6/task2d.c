@@ -112,9 +112,9 @@ int main(int argc, char **argv){
 void file_append (int out, int thread){
 	FILE *output;
 
-    char * outputFileBuffer;
-    outputFileBuffer = malloc(sizeof(char) * 256);
-    strcpy(outputFileBuffer, "");
+    char * outputFileBuffer;                                                            // Declare buffer for name of output file
+    outputFileBuffer = malloc(sizeof(char) * 256);                                      // Allocate space for declared buffer
+    strcpy(outputFileBuffer, "");                                                       
     snprintf(outputFileBuffer, sizeof(char) * 256, "task_2_output_%d.txt", thread);
     output = fopen(outputFileBuffer, "a");
 
