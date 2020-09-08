@@ -5,7 +5,7 @@
  * Group Members    Philip Chen 	27833725
  *                  Ethan Nardella	29723299
  * --------------------------------------------------
- * Lab 6 - Task 2d
+ * Lab 6 - Task 2e
  *      Implement a parallel version of your serial 
  * code in C using Message Passing Interface (MPI).
  * The root process will prompt the user for the n 
@@ -74,10 +74,9 @@ int main(int argc, char **argv){
         // Cast numeric character into integer
         n = (int)n;
 
-        for (int ranks = 0; ranks < size; ranks++){ // Create and empty all the files we output to
 
-            file_clear(ranks);
-        }
+        file_clear(0);
+
     }
 
     MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);  // Send the data and output it
@@ -85,13 +84,61 @@ int main(int argc, char **argv){
     int chunk = n/size;     // Calculate the bounds for each process (e.g.0 - 25M, 25M - 50M, etc.)
     int min = chunk * my_rank;
     int max_chunk = min + chunk;
+    int result_arr[(n/size)];
+    int increment = 0;
     for(int i = min; i < max_chunk; i++){ // Perform the operations
         if (is_prime(i)){
-            file_append(i, my_rank);
+            result_arr[increment] = i;  // set the increment to "append"
+            increment += 1;
+            // file_append(i, my_rank);
         }
     }
+    result_arr[increment] = -1;  // This is the "end of results" string
+
+    if (my_rank != 0){
+        MPI_Send(result_arr, increment, MPI_INT, 0, 0, MPI_COMM_WORLD);    // MPI_Send to the main thread
+
+    }
+
+
     if (my_rank == 0)
     {
+        int print_arr[(n/size)];
+        // int read = 0;
+        // do{
+        //     printf("RESult: %d\n", result_arr[read]);
+        //     read = read + 1;
+
+        // }while(read > -1);
+
+
+        for (int i = 0; i < sizeof(result_arr)/4; i++){
+            if (result_arr[i] > -1){
+                file_append(result_arr[i], 0);
+            }
+            else{
+                break;
+            }
+        }
+
+        for (int receive = 1; receive < size; receive ++){
+
+            MPI_Recv(print_arr, sizeof(result_arr), MPI_INT, receive, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);     // Receive the info from other threads
+            
+            for (int i = 0; i < sizeof(print_arr)/4; i++){
+                if (print_arr[i] > -1 && print_arr[i] < n && (i == 0 ||print_arr[i-1] < print_arr[i] )){  // Check we aren't negative or over the limit, and ensure we aren't reading the previous check's values
+                    file_append(print_arr[i], 0);
+                }
+                else{
+                    break;
+                }
+            }
+            int print_arr[(n/size)];
+
+            
+        }
+
+
         gettimeofday(&stop, NULL);
         int max, comp;
         max = (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec;
@@ -114,9 +161,9 @@ void file_append (int out, int thread){
 
     char * outputFileBuffer;                                                            // Declare buffer for name of output file
     outputFileBuffer = malloc(sizeof(char) * 256);                                      // Allocate space for declared buffer
-    strcpy(outputFileBuffer, "");                                                       // Ensure output buffer is empty
-    snprintf(outputFileBuffer, sizeof(char) * 256, "task_2_output_%d.txt", thread);     // Store output file name into buffer and parameterise for thread
-    output = fopen(outputFileBuffer, "a");                                              // Append to target file
+    strcpy(outputFileBuffer, "");                                                       
+    snprintf(outputFileBuffer, sizeof(char) * 256, "task_2_output_%d.txt", thread);
+    output = fopen(outputFileBuffer, "a");
 
 	if(output == NULL){
 		printf("ERROR");
@@ -132,11 +179,11 @@ void file_append (int out, int thread){
 void file_clear (int thread){
 	FILE *output;
     
-    char * outputFileBuffer;                                                            // Declare buffer for name of output file
-    outputFileBuffer = malloc(sizeof(char) * 256);                                      // Allocate space for declared buffer
-    strcpy(outputFileBuffer, "");                                                       // Ensure output buffer is empty
-    snprintf(outputFileBuffer, sizeof(char) * 256, "task_2_output_%d.txt", thread);     // Store output file name into buffer and parameterise for thread
-    output = fopen(outputFileBuffer, "w");                                              // Append to target file
+    char * outputFileBuffer;
+    outputFileBuffer = malloc(sizeof(char) * 256);
+    strcpy(outputFileBuffer, "");
+    snprintf(outputFileBuffer, sizeof(char) * 256, "task_2_output_%d.txt", thread);
+    output = fopen(outputFileBuffer, "w");
 
 	if(output == NULL){
 		printf("ERROR");
