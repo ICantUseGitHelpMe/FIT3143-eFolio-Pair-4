@@ -34,7 +34,7 @@ static long N = 100000000;
 
 int main(int argc, char* argv[])
 {
-	int i, my_rank, size;
+	int i, my_rank, size;   // Initialise the variables
     double sum = 0.0;
     double piVal;
     struct timespec start, end;
@@ -42,31 +42,31 @@ int main(int argc, char* argv[])
     // Get current clock time.
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-	MPI_Init(&argc, &argv);
+	MPI_Init(&argc, &argv);     // Initialise MPI and get the required constants (size and current rank)
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 	// Parallel implementation
-    int chunk = N/size;
+    int chunk = N/size;     // Calculate the bounds for each process (e.g.0 - 25M, 25M - 50M, etc.)
     int min = chunk * my_rank;
     int max = min + chunk;
-    for(i = min; i < max; i++){
+    for(i = min; i < max; i++){ // Perform the operations
         sum += 4.0 / (1 + pow((2.0 * i + 1.0)/(2.0 * N), 2));
     }
     
-    piVal = 0;
+    piVal = 0;     // Now combine all separate PI approximation components into one number
 	MPI_Allreduce(&sum, &piVal, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    if (my_rank == 0){
-        piVal = piVal / (double)N;
-        clock_gettime(CLOCK_MONOTONIC, &end);
+    if (my_rank == 0){  // Only perform this on the main thread after all the work is done
+        piVal = piVal / (double)N;  // Calculate the final approximation of pi
+        clock_gettime(CLOCK_MONOTONIC, &end);   // Get the time taken for comparison purposes.
         time_taken = (end.tv_sec - start.tv_sec) * 1e9;
         time_taken = (time_taken + (end.tv_nsec - start.tv_nsec)) * 1e-9;
-        printf("Calculated Pi value (Parallel-AlgoI) = %12.9f\n", piVal);
+        printf("Calculated Pi value (Parallel-AlgoI) = %12.9f\n", piVal);   // Print the result
         printf("Overall time (s): %lf\n", time_taken); // ts
     }
 
-	MPI_Finalize();
+	MPI_Finalize();     // Finish up with MPI
     
     return 0;
 }
