@@ -84,7 +84,9 @@ int main(int argc, char **argv){
     int chunk = n/size;     // Calculate the bounds for each process (e.g.0 - 25M, 25M - 50M, etc.)
     int min = chunk * my_rank;
     int max_chunk = min + chunk;
-    int result_arr[(n/size)];
+    int * result_arr;
+    result_arr = malloc(sizeof(int) * chunk);
+    //int result_arr[(n/size)];
     int increment = 0;
     for(int i = min; i < max_chunk; i++){ // Perform the operations
         if (is_prime(i)){
@@ -103,7 +105,8 @@ int main(int argc, char **argv){
 
     if (my_rank == 0)
     {
-        int print_arr[(n/size)];
+        int * print_arr;
+        print_arr = malloc(sizeof(int) * chunk );
         // int read = 0;
         // do{
         //     printf("RESult: %d\n", result_arr[read]);
@@ -112,9 +115,10 @@ int main(int argc, char **argv){
         // }while(read > -1);
 
 
-        for (int i = 0; i < sizeof(result_arr)/4; i++){
-            if (result_arr[i] > -1){
-                file_append(result_arr[i], 0);
+        for (int ij = 0; ij < increment; ij++){
+
+            if (result_arr[ij] > -1){
+                file_append(result_arr[ij], 0);
             }
             else{
                 break;
@@ -123,9 +127,9 @@ int main(int argc, char **argv){
 
         for (int receive = 1; receive < size; receive ++){
 
-            MPI_Recv(print_arr, sizeof(result_arr), MPI_INT, receive, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);     // Receive the info from other threads
+            MPI_Recv(print_arr, increment , MPI_INT, receive, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);     // Receive the info from other threads
             
-            for (int i = 0; i < sizeof(print_arr)/4; i++){
+            for (int i = 0; i < increment; i++){
                 if (print_arr[i] > -1 && print_arr[i] < n && (i == 0 ||print_arr[i-1] < print_arr[i] )){  // Check we aren't negative or over the limit, and ensure we aren't reading the previous check's values
                     file_append(print_arr[i], 0);
                 }
@@ -133,7 +137,6 @@ int main(int argc, char **argv){
                     break;
                 }
             }
-            int print_arr[(n/size)];
 
             
         }
