@@ -33,12 +33,21 @@ int main(int argc, char **argv){
             fflush(stdout);
             scanf( "%d", &s_value );
             // Add your code here
-            printf( "Process %d got %d from Process %d\n",
-            rank, r_value, size - 1);
+            MPI_Send(&s_value, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);                        // MPI_Send to one rank above current rank
+            MPI_Recv(&r_value, 1, MPI_INT, size - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);     // MPI_Recv from the end
+            printf( "Process %d got %d from Process %d\n", rank, r_value, size - 1);
             fflush(stdout);
+            // printf( "Process %d got %d from Process %d\n", rank, r_value, size - 1);
+            // fflush(stdout);
+
         }
         else {
             // Add your code here
+            MPI_Recv(&r_value, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);     // MPI_Recv from previous rank
+
+            MPI_Send(&r_value, 1, MPI_INT, (rank + 1) % size, 0, MPI_COMM_WORLD);                 // MPI_Send to next thread, and if rank + 1 meets 
+                                                                                                // the last processor, revert to 0.
+
             printf( "Process %d got %d from Process %d\n",
             rank, r_value, rank - 1);
             fflush(stdout);
