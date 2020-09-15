@@ -1,3 +1,7 @@
+/*
+ * mpicc task1.c -o task1_out
+ * mpirun -np 4 task1_out
+ */
 #include <stdio.h>
 #include <mpi.h>
 
@@ -8,12 +12,14 @@ int main( argc, argv )
 int argc;
 char **argv;
 {
+        
     int rank, value, size, errcnt, toterr, i, j, up_nbr, down_nbr;
-    MPI_Status status;
     double x[12][12];
     double xlocal[(12/4)+2][12];
-    MPI_Request request[size * 2];
-    MPI_Status status[size * 2];
+
+    MPI_Request request;
+    // MPI_Status status;
+    MPI_Status status;
     MPI_Init( &argc, &argv );  // Begin MPI
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
     MPI_Comm_size( MPI_COMM_WORLD, &size );
@@ -49,16 +55,27 @@ char **argv;
     if (down_nbr < 0){
         down_nbr = MPI_PROC_NULL;
     }
-    
+
     // Send above / Send below
-    MPI_ISend( xlocal[maxn/size], maxn, MPI_DOUBLE, up_nbr, 0, MPI_COMM_WORLD, &request[rank*2] );
-    MPI_ISend( xlocal[1], maxn, MPI_DOUBLE, down_nbr 1, MPI_COMM_WORLD, &request[rank*2 + 1] );
+    MPI_Isend( xlocal[maxn/size], maxn, MPI_DOUBLE, up_nbr, 0, MPI_COMM_WORLD, &request );
+    MPI_Wait(&request, &status);
 
-    MPI_Waitall(size*2, request);
+    MPI_Isend( xlocal[1], maxn, MPI_DOUBLE, down_nbr, 1, MPI_COMM_WORLD, &request);
+
+    MPI_Wait(&request, &status);
     // receive above / receive below
-    MPI_Recv( xlocal[maxn/size+1], maxn, MPI_DOUBLE, up_nbr, 1, MPI_COMM_WORLD, &status );
-    MPI_Recv( xlocal[0], maxn, MPI_DOUBLE, down_nbr, 0, MPI_COMM_WORLD, &status );
+    // MPI_Recv( xlocal[maxn/size+1], maxn, MPI_DOUBLE, up_nbr, 1, MPI_COMM_WORLD, &status );
+    // MPI_Recv( xlocal[0], maxn, MPI_DOUBLE, down_nbr, 0, MPI_COMM_WORLD, &status );
+    // int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
+    // int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
+    
+    MPI_Irecv( xlocal[maxn/size+1], maxn, MPI_DOUBLE, up_nbr, 1, MPI_COMM_WORLD, &request);
+    MPI_Wait(&request, &status);
 
+    MPI_Irecv( xlocal[0], maxn, MPI_DOUBLE, down_nbr, 0, MPI_COMM_WORLD, &request);
+    MPI_Wait(&request, &status);
+
+     
 
     errcnt = 0;
     for (i=1; i<=maxn/size; i++) 
@@ -72,7 +89,7 @@ char **argv;
             errcnt++;
         }
         if (rank < size-1 && xlocal[maxn/size+1][j] != rank + 1){
-            errcnt++
+            errcnt++;
         };
     }
 
