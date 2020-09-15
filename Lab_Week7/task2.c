@@ -1,3 +1,23 @@
+/* FIT3143 - Parallel Computing 
+ * Lab Time         Tuesday 18:00-20:00
+ * Lab ID           6
+ * Pair Number      4
+ * Group Members    Philip Chen 	27833725
+ *                  Ethan Nardella	29723299
+ * --------------------------------------------------
+ * Lab 7 - Task 2
+ *      Your task is to replace the MPI Send and MPI 
+ * Recv calls in your solution for Question 1 with two 
+ * calls to MPI Sendrecv. The first call should shift 
+ * data up; that is, it should send data to the processor 
+ * above and receive data from the processor below. The 
+ * second call to MPI Sendrecv should reverse this; it
+ * should send data to the processor below and receive 
+ * from the processor above.
+ *
+ * mpicc task2.c -o task2_out
+ * mpirun -np 4 task2_out
+ */
 #include <stdio.h>
 #include <mpi.h>
 /* This example handles a 12 x 12 mesh, on 4 processors only. */
@@ -11,7 +31,7 @@ char **argv;
     MPI_Status status;
     double x[12][12];
     double xlocal[(12/4)+2][12];
-    MPI_Init( &argc, &argv );
+    MPI_Init( &argc, &argv );  // Begin MPI
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
     MPI_Comm_size( MPI_COMM_WORLD, &size );
     if (size != 4) MPI_Abort( MPI_COMM_WORLD, 1 );
@@ -32,7 +52,7 @@ char **argv;
     up_nbr = rank + 1;
     if (up_nbr >= size) up_nbr = MPI_PROC_NULL;
     down_nbr = rank -1;
-    if (down_nbr < 0) down_nbr = MPI_PROC_NULL;
+    if (down_nbr < 0) down_nbr = MPI_PROC_NULL; // Use sendrecv to send and recv at the same time
     MPI_Sendrecv( xlocal[maxn/size], maxn, MPI_DOUBLE, up_nbr, 0, xlocal[0], maxn, MPI_DOUBLE, down_nbr, 0, MPI_COMM_WORLD, &status );
     /* Send down and receive from above (shift down) */
     MPI_Sendrecv( xlocal[1], maxn, MPI_DOUBLE, down_nbr, 1, xlocal[maxn/size+1], maxn, MPI_DOUBLE, up_nbr, 1, MPI_COMM_WORLD, &status );

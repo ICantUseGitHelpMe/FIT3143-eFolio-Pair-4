@@ -1,7 +1,62 @@
-/*
+/* FIT3143 - Parallel Computing 
+ * Lab Time         Tuesday 18:00-20:00
+ * Lab ID           6
+ * Pair Number      4
+ * Group Members    Philip Chen 	27833725
+ *                  Ethan Nardella	29723299
+ * --------------------------------------------------
+ * Lab 7 - Task 1
+ *      This task implements a simple parallel data 
+ * structure. This structure is a two-dimension regular 
+ * mesh of points, divided into slabs, with each slab
+ * allocated to a different MPI process. In the simplest 
+ * C form, the full data structure is:
+ *          double x[maxn][maxn];
+ * and we want to arrange it so that each process has a 
+ * local piece:
+ *          double xlocal[maxn/size][maxn];
+ * where size is the size of the communicator (e.g., the 
+ * number of MPI processes).
+ *      If that was all that there was to it, there wouldn't 
+ * be anything to do.
+ *      However, for the computation that we're going to 
+ * perform on this data structure, we'll need the adjacent 
+ * values. That is, to compute a new x[i][j], we will need
+ * x[i][j+1] x[i][j-1] x[i+1][j] x[i-1][j]. The last two of 
+ * these could be a problem if they are not in xlocal but
+ * are instead on the adjacent processes. To handle this 
+ * difficulty, we define ghost points that we will contain the 
+ * values of these adjacent points.
+ *      Write a parallel code using MPI to copy divide the array 
+ * x into equalsized strips and to copy the adjacent edges to the 
+ * neighboring processes. Assume that x is maxn by maxn, and that 
+ * maxn is evenly divided by the number of processes. For 
+ * simplicity, you may assume a fixed size array and a fixed (or 
+ * minimum) number of processors.
+ *      To test the routine, have each process fill its section 
+ * with the rank of the process, and the ghost points with -1. After 
+ * the exchange takes place, test to make sure that the ghost points 
+ * have the proper value. Assume that the domain is not periodic; 
+ * that is, the top process (rank = size - 1) only sends and receives 
+ * data from the one under it (rank = size - 2)and the bottom process 
+ * (rank = 0) only sends and receives data from the one above it (rank 
+ * = 1). Consider a maxn of 12 and use 4 processors to start with.
+ *      In this exercise (i.e., Task 1), use non-blocking MPI 
+ * routines instead of the blocking routines you have learned 
+ * before. Use MPI Isend and MPI Irecv and use MPI Wait or MPI 
+ * Waitall to test for completion of the nonblocking operations.
+ *      You may want to use these MPI routines in your solution: 
+ * MPI Isend, MPI Irecv, MPI Waitall.
+ *      
+ *      NOTE THAT the example in (https://www.mcs.anl.gov/research/
+ *      projects/mpi/tutorial/mpiexmpl/src/exchange/C/main.html) was
+ *      referred when replacing MPI_Send, MPI_Recv with MPI_Isend,
+ *      MPI_Irecv, MPI_Wait
+ *
  * mpicc task1.c -o task1_out
  * mpirun -np 4 task1_out
  */
+
 #include <stdio.h>
 #include <mpi.h>
 
@@ -34,18 +89,6 @@ char **argv;
 	xlocal[maxn/size+1][j] = -1;
     }
 
-    /*
-      CALL MPI_COMM_RANK(comm, rank, ierr)
-    IF(rank.EQ.0) THEN
-        CALL MPI_ISEND(a(1), 10, MPI_REAL, 1, tag, comm, request, ierr)
-        **** do some computation ****
-        CALL MPI_WAIT(request, status, ierr)
-    ELSE
-        CALL MPI_IRECV(a(1), 15, MPI_REAL, 0, tag, comm, request, ierr)
-        **** do some computation ****
-        CALL MPI_WAIT(request, status, ierr)
-    END IF
-    */
    
     up_nbr = rank + 1;  // This prevents crashing from occurring if the current process is 0 or size - 1 (max)
     down_nbr = rank - 1;
@@ -88,7 +131,7 @@ char **argv;
         };
     }
 
-    MPI_Reduce( &errcnt, &toterr, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD );
+    MPI_Reduce( &errcnt, &toterr, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD );  // Normal code reducing the problem (see tut doc)
     if (rank == 0) {
         if (toterr){
             printf( "! found %d errors\n", toterr );
