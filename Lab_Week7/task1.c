@@ -56,19 +56,14 @@ char **argv;
         down_nbr = MPI_PROC_NULL;
     }
 
-    // Send above / Send below
+    // Send above / Send below.  Be sure to wait afterwards before continuing.
     MPI_Isend( xlocal[maxn/size], maxn, MPI_DOUBLE, up_nbr, 0, MPI_COMM_WORLD, &request );
     MPI_Wait(&request, &status);
 
     MPI_Isend( xlocal[1], maxn, MPI_DOUBLE, down_nbr, 1, MPI_COMM_WORLD, &request);
-
     MPI_Wait(&request, &status);
-    // receive above / receive below
-    // MPI_Recv( xlocal[maxn/size+1], maxn, MPI_DOUBLE, up_nbr, 1, MPI_COMM_WORLD, &status );
-    // MPI_Recv( xlocal[0], maxn, MPI_DOUBLE, down_nbr, 0, MPI_COMM_WORLD, &status );
-    // int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
-    // int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
-    
+
+    // receive above / receive below.  Be sure to wait afterwards before continuing.
     MPI_Irecv( xlocal[maxn/size+1], maxn, MPI_DOUBLE, up_nbr, 1, MPI_COMM_WORLD, &request);
     MPI_Wait(&request, &status);
 
