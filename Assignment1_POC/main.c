@@ -8,7 +8,7 @@
  * Assignment 1 - POC
  *      This POC is for the shared memory message-passing
  * system proposed in Sharing Memory Robustly in 
- * Message-Pasing Systems, Attiya et al. The system works 
+ * Message-Passing Systems, Attiya et al. The system works 
  * in the following fashion:
  *      - message passing occurs using shared memory, to 
  *        simulate this, a buffer array will be created
@@ -20,8 +20,8 @@
  *      - all processes will poll from the shared array 
  *        when reading / writing
  *
- * mpicc main.c -o main_out -lm
- * mpirun -np 4 main_out
+ * Build: mpicc main.c -o main_out -lm
+ * Run:   mpirun -np 4 main_out
  */
 
 #include <stdio.h>
@@ -61,7 +61,7 @@ char **argv;
             if (buf[0] == 20){  // Done
                 // Update the relevant process to complete
                 exit[buf[2]] = true;
-                // printf("Proc %d FInished!\n", buf[2]);
+                printf("Proc %d Finished!\n", buf[2]);
             }
             else if (buf[0] == 10){ // Information
                 // printf("Value now: %d, sent val %d\n", share_buff[0],  share_buff[buf[1]]);
@@ -70,7 +70,7 @@ char **argv;
                 int val[2];  // val[0] is the index, val[1] is the value
                 MPI_Recv(val, 2, MPI_INT, buf[2], MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 share_buff[val[0]] = val[1];
-                // printf("Value now: %d, RECV val %d\n", share_buff[0], val[1]);
+                printf("Received %d from %d\n", val[1], buf[2]);
                 
             }
 
