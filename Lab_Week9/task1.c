@@ -1,5 +1,4 @@
 /* FIT3143 - Parallel Computing 
-https://prod.liveshare.vsengsaas.visualstudio.com/join?C14C03E40B69E7AD4018B752B4640B459013
  * Lab Time         Tuesday 18:00-20:00
  * Lab ID           6
  * Pair Number      4
@@ -44,8 +43,7 @@ int main(int argc, char *argv[]) {
         dims[0] = nrows; /* number of rows */
         dims[1] = ncols; /* number of columns */
         if( (nrows*ncols) != size) {
-            if( my_rank ==0) printf("ERROR: nrows*ncols)=%d *
-            %d = %d != %d\n", nrows, ncols, nrows*ncols,size);
+            if( my_rank ==0) printf("ERROR: nrows*ncols)=%d * %d = %d != %d\n", nrows, ncols, nrows*ncols,size);
             MPI_Finalize();
             return 0;
         }
@@ -60,7 +58,7 @@ int main(int argc, char *argv[]) {
     */
     MPI_Dims_create(size, ndims, dims);
     if(my_rank==0)
-    printf("Root Rank: %d. Comm Size: %d: Grid Dimension = [%d x %d] \n",my_rank,size,dims[0],dims[1]);
+        printf("Root Rank: %d. Comm Size: %d: Grid Dimension = [%d x %d] \n",my_rank,size,dims[0],dims[1]);
     /* create cartesian mapping */
     wrap_around[0] = wrap_around[1] = 0; /* periodic shift is .false. */
     reorder = 1;
