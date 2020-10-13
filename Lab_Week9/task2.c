@@ -46,7 +46,6 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
-
     /* process command line arguments*/
     if (argc == 3) {
         nrows = atoi (argv[1]);
@@ -89,18 +88,12 @@ int main(int argc, char *argv[]) {
     MPI_Cart_shift( comm2D, SHIFT_COL, DISP, &nbr_j_lo, &nbr_j_hi);
     printf("Global rank: %d. Cart rank: %d. Coord: (%d, %d). Left: %d. Right: %d. Top: %d. Bottom: %d\n", my_rank, my_cart_rank, coord[0], coord[1], nbr_j_lo, nbr_j_hi, nbr_i_lo, nbr_i_hi);
     fflush(stdout);
-    // Isend * neighbours
-
-    // MPI_Isend( xlocal[1], maxn, MPI_DOUBLE, down_nbr, 1, MPI_COMM_WORLD, &request);
-    // MPI_Wait(&request, &status);
-
-    // // receive above / receive below.  Be sure to wait afterwards before continuing.
-    // MPI_Irecv( xlocal[maxn/size+1], maxn, MPI_DOUBLE, up_nbr, 1, MPI_COMM_WORLD, &request);
-    // MPI_Wait(&request, &status);
-    for (int looper = 0; looper < TARGET; looper += 1)
+    file_clear(my_rank);
+    for (int looper = 0; looper < TARGET; looper++)
     {
         // array = [-1, -1, 252341, 998989831]
         int myprime = rand_prime();
+        
         int primes[4];  // Will either contain the prime, or -1 if there is no associated cartesian neighbour
 
         if (nbr_i_lo >= 0){
@@ -110,10 +103,6 @@ int main(int argc, char *argv[]) {
             
             MPI_Isend(&myprime, 1, MPI_INT, nbr_i_lo, 1, MPI_COMM_WORLD, &send_request);
             MPI_Irecv( &their_prime, 1, MPI_INT, nbr_i_lo, MPI_ANY_TAG, MPI_COMM_WORLD, &recv_request);
-            // if (myprime == their_prime){
-            //     file_append(their_prime, my_rank);
-            // }
-            // MPI_Wait(&send_request, MPI_STATUS_IGNORE);
             MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
             primes[0] = their_prime; // Update the prime to the index
 
@@ -191,8 +180,7 @@ int rand_prime(){
     int n = 30, returned = 0;
     while (returned == 0){
         iterative_integer = rand() % 10;
-        printf("iterative_integer: %d", iterative_integer);
-        for (int iterative_integer; iterative_integer < n; iterative_integer++) {
+        for (iterative_integer; iterative_integer < n; iterative_integer++) {
             int prime_boolean = is_prime(iterative_integer);
             if (prime_boolean == 1){
                 returned = 1;
@@ -244,6 +232,9 @@ void file_clear (int thread){
 // Function for determining whether or not a number is prime
 int is_prime(int input_integer){
     // Let input_integer be the integer to be tested for prime property
+    if (input_integer <= 1){
+        return(0);
+    }
     int input_root;
     // Find square root of input_integer
     input_root = floor(sqrt(input_integer));
