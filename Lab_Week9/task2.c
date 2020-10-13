@@ -30,7 +30,7 @@
 void file_append(int out, int thread);
 void file_clear(int thread);
 int is_prime(int input_integer);
-int rand_prime();
+int rand_prime(int my_rank);
 int main(int argc, char *argv[]) {
     int ndims=2, size, my_rank, reorder, my_cart_rank, ierr;
     int nrows, ncols;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
     for (int looper = 0; looper < TARGET; looper++)
     {
         // array = [-1, -1, 252341, 998989831]
-        int myprime = rand_prime();
+        int myprime =   rand_prime(my_rank);
         
         int primes[4];  // Will either contain the prime, or -1 if there is no associated cartesian neighbour
 
@@ -175,11 +175,11 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-int rand_prime(){
+int rand_prime(int my_rank){
     int iterative_integer;
     int n = 30, returned = 0;
     while (returned == 0){
-        iterative_integer = rand() % 10;
+        iterative_integer = rand() % 10 + my_rank;
         for (iterative_integer; iterative_integer < n; iterative_integer++) {
             int prime_boolean = is_prime(iterative_integer);
             if (prime_boolean == 1){
