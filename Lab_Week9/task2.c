@@ -29,7 +29,8 @@
 #define TARGET 1000 // The number of iterations in the prime check
 void file_append(int out, int thread);
 void file_clear(int thread);
-int rand_prime(unsigned processor);
+int is_prime(int input_integer);
+int rand_prime();
 int main(int argc, char *argv[]) {
     int ndims=2, size, my_rank, reorder, my_cart_rank, ierr;
     int nrows, ncols;
@@ -38,6 +39,8 @@ int main(int argc, char *argv[]) {
     MPI_Comm comm2D;
     int dims[ndims],coord[ndims];
     int wrap_around[ndims];    
+    /* Seed generator */
+    srand((unsigned) time(NULL));
     /* start up initial MPI environment */
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -85,7 +88,6 @@ int main(int argc, char *argv[]) {
     MPI_Cart_shift( comm2D, SHIFT_ROW, DISP, &nbr_i_lo, &nbr_i_hi);
     MPI_Cart_shift( comm2D, SHIFT_COL, DISP, &nbr_j_lo, &nbr_j_hi);
     printf("Global rank: %d. Cart rank: %d. Coord: (%d, %d). Left: %d. Right: %d. Top: %d. Bottom: %d\n", my_rank, my_cart_rank, coord[0], coord[1], nbr_j_lo, nbr_j_hi, nbr_i_lo, nbr_i_hi);
-    int myprime = rand_prime(my_rank);
     fflush(stdout);
     // Isend * neighbours
 
@@ -98,7 +100,7 @@ int main(int argc, char *argv[]) {
     for (int looper = 0; looper < TARGET; looper += 1)
     {
         // array = [-1, -1, 252341, 998989831]
-
+        int myprime = rand_prime();
         int primes[4];  // Will either contain the prime, or -1 if there is no associated cartesian neighbour
 
         if (nbr_i_lo >= 0){
@@ -176,6 +178,7 @@ int main(int argc, char *argv[]) {
         }
         if (to_append == 1){
             file_append(myprime, my_rank);
+            to_append = 0;
         }
     }
     MPI_Comm_free( &comm2D );
@@ -183,26 +186,20 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-int rand_prime(unsigned processor){
-    srand((unsigned) time(NULL) + processor);  // Seed the rand
-
-    /* Seed generator for random integers */
-    // Generate a random number.  Keep adding one until we know it's a prime
-    int start = rand() + 2;
-    bool is_prime = false;
-    while (!is_prime){
-        is_prime = true;  // Default to prime, then set to composite if a factor is found
-        if (start % 2 == 0){
-            start += 1;  // No use testing it if it's even
-        }
-        for (int i = 2; i < sqrt(start); i++){
-            if (start % i == 0){
-                is_prime = false;
+int rand_prime(){
+    int iterative_integer;
+    int n = 30, returned = 0;
+    while (returned == 0){
+        iterative_integer = rand() % 10;
+        printf("iterative_integer: %d", iterative_integer);
+        for (int iterative_integer; iterative_integer < n; iterative_integer++) {
+            int prime_boolean = is_prime(iterative_integer);
+            if (prime_boolean == 1){
+                returned = 1;
+                return(iterative_integer);
             }
         }
-        start += 2;  // Move forward, skipping evens
     }
-    return start;
 }
 
 //File output:
@@ -242,4 +239,22 @@ void file_clear (int thread){
 
 	fclose(output);
 
+}
+
+// Function for determining whether or not a number is prime
+int is_prime(int input_integer){
+    // Let input_integer be the integer to be tested for prime property
+    int input_root;
+    // Find square root of input_integer
+    input_root = floor(sqrt(input_integer));
+    // Iterate through each integer, i, from 2 to square root of input_integer
+    for (int iterative_integer = 2; iterative_integer <= input_root; iterative_integer++) {
+        // If the remainder of input_integer divded by i is 0, return 0
+        int remainder = input_integer % iterative_integer;
+        if (remainder == 0){
+            return(0);
+        }
+    }
+    // If the remainder of input_integer divided by all i values is not 0, return 1
+    return(1);
 }
