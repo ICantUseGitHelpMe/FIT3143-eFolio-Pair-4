@@ -16,6 +16,7 @@
 #include <mpi.h>
 #define CONTINUE 0
 #define END 1
+void file_append(char *out, int thread);
 int main(int argc, char **argv)
 {
     FILE *pInfile;
@@ -34,47 +35,74 @@ int main(int argc, char **argv)
     case 0:
     {
         // CONTINUE WITH PART (a) HERE
-        pInfile = fopen("quad.txt","r");
-        char *read, *line;
-        size_t len;
-        while ((read =  getline(&line, &len, pInfile)) != -1) {
-            printf("Retrieved line of length %zu:\n", read);
-            printf("%s", line);
-            char * element = strtok (line," ");
-            while (element != NULL){
-                printf( " %s\n", element ); //printing each token
-                element = strtok(NULL, " ");
-            }
+        FILE *pInfile;
+        int counter = 0;
+        double *pX4Buff = NULL;
+        float a, b, c;
+        float d;
+        int fileElementCount;
+        pInfile = fopen("quad.txt", "r");
+        fscanf(pInfile, "%d", &fileElementCount);
+        pX4Buff = (double *)malloc(fileElementCount * sizeof(double));
+        memset(pX4Buff, 0, fileElementCount * sizeof(double));
+        // Send the counter to the last process
+        // Read each element from the file
+        char discard[50];
+        fscanf(pInfile, "%s%s%s", discard); // Ignore the a, b, c
+        counter++;
+        while (counter < fileElementCount )
+        {
+            fscanf(pInfile, "%f", &a);
+            printf("%f ", a);
+            fscanf(pInfile, "%f", &b);
+            printf("%f ", b);
+            fscanf(pInfile, "%f", &c);
+            printf("%f\n", c);
+
+            float send_buf[4]; // Send D, then A, then B, then the sentinal
+            send_buf[0] = pow(b, 2.0) - 4 * a * c;
+            send_buf[1] = a;
+            send_buf[2] = b;
+            send_buf[3] = counter == fileElementCount - 1 ? END : CONTINUE;  // Send the stop code if counter is at the end, otherwise continue.
+            MPI_Send(send_buf, 4, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD);
+
+            counter++;
         }
-        break;
+        // Close up the file
+
+        fclose(pInfile);
+        pInfile = NULL;
     }
     case 1:
     {
         int stop = 0;
-        while (stop == 0)  // Continue until told to stop
+        while (stop == 0) // Continue until told to stop
         {
             // WRITE PART (b) HERE
-            float input_buf[4];  // d, a, b, and a sentinal
+            float input_buf[4]; // d, a, b, and a sentinal
             MPI_Recv(input_buf, 4, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             float root1, root2, x1_real, x1_img, x2_real, x2_img = 0;
             float d = input_buf[0];
             float a = input_buf[1];
             float b = input_buf[2];
-            if (d == 0) {
+            if (d == 0)
+            {
                 root1 = root1 = -b / (2 * a);
             }
-            else if (d > 0){
+            else if (d > 0)
+            {
                 root1 = (-b + sqrt(d)) / (2 * a);
                 root2 = (-b - sqrt(d)) / (2 * a);
             }
-            else{  // d is negative, so we have imaginary roots
-                x1_real = -b / (2*a);
-                x1_img = sqrt(abs(d)) / (2*a);
-                x2_real = -b / (2*a);
-                x2_img = sqrt(abs(d)) / (2*a);
+            else
+            { // d is negative, so we have imaginary roots
+                x1_real = -b / (2 * a);
+                x1_img = sqrt(abs(d)) / (2 * a);
+                x2_real = -b / (2 * a);
+                x2_img = sqrt(abs(d)) / (2 * a);
             }
 
-            stop = input_buf[3];  // 0 if the previous node wants to continue, 1 if it wants to stop
+            stop = input_buf[3]; // 0 if the previous node wants to continue, 1 if it wants to stop
 
             // prepare the information for sending
             float output_buf[7];
@@ -84,8 +112,8 @@ int main(int argc, char **argv)
             output_buf[3] = x1_img;
             output_buf[4] = x2_real;
             output_buf[5] = x2_img;
-            output_buf[6] = stop;  // Send whether we want to stop
-            
+            output_buf[6] = stop; // Send whether we want to stop
+
             MPI_Send(output_buf, 6, MPI_DOUBLE, 2, 0, MPI_COMM_WORLD);
         }
         break;
@@ -95,9 +123,47 @@ int main(int argc, char **argv)
         // x1 and x_2's real and img will all be 0 if they are not used - this is impossible to happen so it is a clear indication the numbers are real
         // Input is: root1, root2 (roots if not imaginary), x1 real, x1 img, zx2 real, x2 img (if imaginary)
         // WRITE PART (c) HERE
+        MPI_Recv(output_buf, 7, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        file_append ("x1,x2,x1_real,x1_img x2_real,x2_img", 2)
+        if ((output_buf[2] == 0) && (output_buf[3] == 0) && (output_buf[4] == 0) && (output_buf[5] == 0))
+        {
+            float root1, root2;
+            root1 = output_buf[0];
+            root2 = output_buf[1];
+qq
+        }
+        else
+        {
+            float x1_real, x1_img, x2_real, x2_img;
+            x1_real = output_buf[2];
+            x1_img = output_buf[3];
+            x2_real = output_buf[4];
+            x2_img = output_buf[5];
+        }
+        output_buf[6] = stop; // Send whether we want to stop
+
         break;
     }
     }
     MPI_Finalize();
     return 0;
+}
+
+//File output:
+void file_append (char *out, int thread){
+	FILE *output;
+
+    char * outputFileBuffer;                                                            // Declare buffer for name of output file
+    outputFileBuffer = malloc(sizeof(char) * 256);                                      // Allocate space for declared buffer
+    strcpy(outputFileBuffer, "");                                                       
+    snprintf(outputFileBuffer, sizeof(char) * 256, "task_2_output_%d.txt", thread);
+    output = fopen(outputFileBuffer, "a");
+
+	if(output == NULL){
+		printf("ERROR");
+		exit(1);
+	}
+
+	fprintf(output, "%d\n", out);
+	fclose(output);
 }
