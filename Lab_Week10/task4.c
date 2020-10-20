@@ -193,7 +193,7 @@ int main(int argc, char **argv)
                         
 
     MPI_Finalize();
-    printf("ENDED ALL:\n");
+    printf("ENDED ALL:\n"g);
     return 0;
 }
 //File output:
