@@ -15,6 +15,7 @@
 #include <math.h>
 #include <memory.h>
 #include "mpi.h"
+
 #define SENTINEL 0.0
 int main(int argc, char *argv[]){
     FILE *pInfile;
