@@ -79,6 +79,7 @@ int main(int argc, char **argv)
 
             fclose(inputFile);
             inputFile = NULL;
+            break;
         }
         case 1:
         {
@@ -190,10 +191,9 @@ int main(int argc, char **argv)
             break;
         }
     }
-                        
 
     MPI_Finalize();
-    printf("ENDED ALL:\n"g);
+    printf("ENDED ALL:\n");
     return 0;
 }
 //File output:
