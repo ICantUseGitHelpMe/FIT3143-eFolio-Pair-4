@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <unistd.h>
-
+#define INTERVAL 0.1  // How frequently the main processor will check for updates from nodes
 int server_control();
 void satellite();
 void server();
@@ -47,15 +47,8 @@ void satellite(){
 }
 void server(){
     // Will send with tag 0 and receive tag 1, to node 0 (us)
-
-    printf("Server!\n");
+    for (int counter = 0; counter < 100; counter ++){
+        printf("Server!\n");
+        sleep(0.1);
+    }
 }
-
-// int master_io(MPI_Comm world_comm, MPI_Comm comm){
-//     int size, nslaves;
-//     MPI_Comm_size(world_comm, &size );
-//     nslaves = size - 1;
-//     pthread_t tid;
-//     pthread_create(&tid, 0, ProcessFunc, &nslaves); // Create the thread
-//     pthread_join(tid, NULL); // Wait for the thread to complete.
-//     return 0;
