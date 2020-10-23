@@ -10,13 +10,13 @@
 #include <time.h>
 #include <unistd.h>
 #include <math.h>
-#define ITERATIONS 1000       // The number of loops in the server and satellite
+#define ITERATIONS 100000       // The number of loops in the server and satellite
 #define INTERVAL 10 * 1000    // How frequently the main processor will check for updates from nodes (in microseconds)
 #define SPLITTER 157          // Divide random numbers by this to make them floats.  This number is a prime
 #define THRESHOLD 80.0f       // The temperature that evokes a positive response (degrees)
 #define MOD_DENOMINATOR 60.0f // The number the generated temperature is modded by.  Determines the upper range of the generated temperature
 #define MIN_TEMP 25.0f        // The baseline temperature.
-#define SATELLITE_CACHE 10     // The number of elements the satellite will keep in its memory
+#define SATELLITE_CACHE 5     // The number of elements the satellite will keep in its memory
 #define ROWS 2                // The number of rows of nodes
 #define COLUMNS 2             // The number of columns of nodes
 #define BASE_REQUEST 1        // The Tag used for the requests to the base
@@ -92,8 +92,9 @@ void satellite()
     float received_coordinate[2]; // index 0 is the "x", index 1 is the "y"
     // Get ready to receive the request for data
     MPI_Irecv(received_coordinate, 2, MPI_INT, SERVER_ID, SATELLITE_REQUEST, MPI_COMM_WORLD, &request);
-    while (1==1)
+    while (1 == 1)
     {
+        printf("Rollib\n");
         float temperature = generate_temp();
         timestamp_array[index_count] = time(NULL);
         temperature_array[index_count] = temperature;
@@ -105,8 +106,11 @@ void satellite()
         int got_request;
         MPI_Test(&request, &got_request, MPI_STATUS_IGNORE);
         // printf("Before check %d\n", got_request);
+        printf("Rollib2 %d\n", got_request);
+
         if (got_request == 1) // A request for data was received
         {
+
             // printf("AFTER check %d\n", got_request);
 
             // printf("GOT!\n");
@@ -122,9 +126,9 @@ void satellite()
                     // printf("MATCH\n");
                     found = 1;
                     float send_buf[2];
-                    send_buf[0] = (float)timestamp_array[index]; // The timestamp (cast as a float for ease, it will become unsigned again later)
-                    send_buf[1] = temperature_array[index];      // The temperature info
-                    MPI_Ssend(send_buf, 2, MPI_FLOAT, SERVER_ID, BASE_REQUEST, MPI_COMM_WORLD); // Ssend as we don't care about the response
+                    send_buf[0] = (float)timestamp_array[index];                                // The timestamp (cast as a float for ease, it will become unsigned again later)
+                    send_buf[1] = temperature_array[index];                                     // The temperature info
+                    MPI_Send(send_buf, 2, MPI_FLOAT, SERVER_ID, BASE_REQUEST, MPI_COMM_WORLD); // Ssend as we don't care about the response
                     break;
                 }
             }
@@ -134,9 +138,9 @@ void satellite()
                 float send_buf[2];
                 send_buf[0] = -1.0f; // An impossible value for the time, so demonstrates it isn't present
                 send_buf[1] = 0.0f;
-                MPI_Ssend(send_buf, 2, MPI_FLOAT, SERVER_ID, BASE_REQUEST, MPI_COMM_WORLD);  // Ssend as we don't care about the response
+                MPI_Send(send_buf, 2, MPI_FLOAT, SERVER_ID, BASE_REQUEST, MPI_COMM_WORLD); // Ssend as we don't care about the response
             }
-
+            printf("Postsend\n");
             MPI_Request req2;
             usleep(1);                                                                                          // Pause before next iteration
             MPI_Irecv(received_coordinate, 2, MPI_INT, SERVER_ID, SATELLITE_REQUEST, MPI_COMM_WORLD, &request); // Can;t be the same request, try an array
@@ -146,8 +150,8 @@ void satellite()
         int got_stop;
         MPI_Test(&stop_code, &got_stop, MPI_STATUS_IGNORE);
         if (got_stop == 1) // The Kill Order was received
-        { 
-            break;  // Leave and end
+        {
+            break; // Leave and end
         }
         usleep(INTERVAL);
     }
@@ -155,40 +159,50 @@ void satellite()
     char readable_timestamp[50];
 
     // Debug printing
-    for (int index = 0; index < SATELLITE_CACHE; index++)
-    {
-        printf("The thing %d\n", index);
-        struct tm tolocal;
-        time_t cast_time = (time_t)timestamp_array[index];
-        tolocal = *localtime(&cast_time);
-        strftime(readable_timestamp, sizeof(readable_timestamp), "%Y-%m-%d %H:%M:%S %Z", &tolocal);
-        printf("Temperature: %f, Time: %s, Coords: %d, %d\n", temperature_array[index], readable_timestamp, coordinate_array[index][0], coordinate_array[index][1]);
-
-    }
+    // for (int index = 0; index < SATELLITE_CACHE; index++)
+    // {
+    //     printf("The thing %d\n", index);
+    //     struct tm tolocal;
+    //     time_t cast_time = (time_t)timestamp_array[index];
+    //     tolocal = *localtime(&cast_time);
+    //     strftime(readable_timestamp, sizeof(readable_timestamp), "%Y-%m-%d %H:%M:%S %Z", &tolocal);
+    //     printf("Temperature: %f, Time: %s, Coords: %d, %d\n", temperature_array[index], readable_timestamp, coordinate_array[index][0], coordinate_array[index][1]);
+    // }
     printf("Satellite Has Finalised\n");
-
 }
 void server()
 {
     printf("Server Initialised\n");
     // Will send with tag 0 and receive tag 1, to node 0 (us)
+    char readable_timestamp[50];  // Stores the timestamp when it is getting cast
     for (int counter = 0; counter < ITERATIONS; counter++)
     {
-        usleep(INTERVAL);  // Wait
+        usleep(INTERVAL); // Wait
 
         if (counter % 50 == 0)
         {
-        // printf("%d\n", counter);
+            // printf("%d\n", counter);
         }
         int coords[2]; // Stores the cooreds of the fire
         coords[0] = 0;
         coords[1] = 0;
+        printf("Preblock\n");
+        // Blocking send is used here to maintain the strict order
         MPI_Send(coords, 2, MPI_INT, SERVER_ID, SATELLITE_REQUEST, MPI_COMM_WORLD);
+        printf("Midblock\n");
+
         float received[2]; // The returned info
         MPI_Recv(received, 2, MPI_FLOAT, SERVER_ID, BASE_REQUEST, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Postblock\n");
+
         if (received[0] > 0)
         { // Found
-            // printf("MAtch: %u, %f!\n", (unsigned)received[0], received[1]);
+            struct tm tolocal;
+            time_t cast_time = (time_t)received[0];
+            tolocal = *localtime(&cast_time);
+            strftime(readable_timestamp, sizeof(readable_timestamp), "%Y-%m-%d %H:%M:%S %Z", &tolocal);
+
+            // printf("MAtch: %s, %f!\n", readable_timestamp, received[1]);
         }
     }
     int flag = 0;
