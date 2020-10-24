@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <math.h>
-#define ITERATIONS 100000     // The number of loops in the server and satellite
+#define ITERATIONS 10000     // The number of loops in the server and satellite
 #define INTERVAL 10 * 1000    // How frequently the main processor will check for updates from nodes (in microseconds)
 #define SPLITTER 157          // Divide random numbers by this to make them floats.  This number is a prime
 #define THRESHOLD 80.0f       // The temperature that evokes a positive response (degrees)
@@ -108,7 +108,6 @@ void satellite()
 
         if (got_request == 1) // A request for data was received
         {
-            printf("Rollib 2 %d\n ", received_coordinate[2]);
 
             MPI_Request sent_info; // New requests for send and receive
 
@@ -124,10 +123,8 @@ void satellite()
                     float send_buf[2];
                     send_buf[0] = (float)timestamp_array[index]; // The timestamp (cast as a float for ease, it will become unsigned again later)
                     send_buf[1] = temperature_array[index];      // The temperature info
-                    printf("Presend1 %d\n", request == MPI_REQUEST_NULL);
 
                     MPI_Send(send_buf, 2, MPI_FLOAT, SERVER_ID, BASE_REQUEST, MPI_COMM_WORLD); // Ssend as we don't care about the response
-                    printf("Postsend\n");
 
                     break;
                 }
@@ -138,22 +135,20 @@ void satellite()
                 float send_buf[2];
                 send_buf[0] = -1.0f; // An impossible value for the time, so demonstrates it isn't present
                 send_buf[1] = 0.0f;
-                printf("Presend2 %d\n", request == MPI_REQUEST_NULL);
 
                 MPI_Send(send_buf, 2, MPI_FLOAT, SERVER_ID, BASE_REQUEST, MPI_COMM_WORLD); // Ssend as we don't care about the response
-                printf("Postsend\n");
             }
             MPI_Request req2;
             usleep(1); // Pause before next iteration
             request = req2;
             MPI_Irecv(received_coordinate, 3, MPI_INT, SERVER_ID, SATELLITE_REQUEST, MPI_COMM_WORLD, &request); // Can;t be the same request, try an array
-            printf("AFTER new recv\n");
         }
-        printf("Temperature: %f\n", temperature);
         int got_stop;
         MPI_Test(&stop_code, &got_stop, MPI_STATUS_IGNORE);
         if (got_stop == 1) // The Kill Order was received
         {
+            MPI_Cancel( &request);
+            MPI_Request_free( &request);
             break; // Leave and end
         }
         usleep(INTERVAL);
@@ -163,6 +158,7 @@ void satellite()
 }
 void server()
 {
+    int success = 0;
     printf("Server Initialised\n");
     // Will send with tag 0 and receive tag 1, to node 0 (us)
     char readable_timestamp[50]; // Stores the timestamp when it is getting cast
@@ -170,25 +166,22 @@ void server()
     {
         usleep(INTERVAL); // Wait
 
-        if (counter % 50 == 0)
+        if (counter % 500 == 0)
         {
-            // printf("%d\n", counter);
+            printf("%d successes from %d iterations\n", success, counter);
         }
         int coords[3]; // Stores the cooreds of the fire
         coords[0] = 0;
         coords[1] = 0;
         coords[2] = counter; // debug
 
-        printf("Preblock\n");
         // Blocking send is used here to maintain the strict order
 
         MPI_Send(coords, 3, MPI_INT, SERVER_ID, SATELLITE_REQUEST, MPI_COMM_WORLD);
-        printf("Midblock %d\n", coords[2]);
-
+        printf("sent\n");
         MPI_Request testr;
         float received[2]; // The returned info
         MPI_Irecv(received, 2, MPI_FLOAT, SERVER_ID, BASE_REQUEST, MPI_COMM_WORLD, &testr);
-        printf("Waiting\n");
         // Implement a timeout here:
         int did_timeout = 0;
         for (int wait; wait < 10; wait++)
@@ -199,34 +192,36 @@ void server()
                 break;
             }
             else if (wait == 9){  // Last iteration.  Time out
+            printf("timeout\n");
+
                 did_timeout = 1;
                 MPI_Cancel( &testr);
                 MPI_Request_free( &testr);
             }
             usleep(10000);  // Wait for the timeout a bit
         }
-        printf("Postblock\n");
+        // printf("received\n");
         if (did_timeout == 1){
             //TODO:  Log the failed response
-            received[0] = -1;
-            received[1] = 0;
+            printf("timeout\n");
+            received[0] = -1.0f;
+            received[1] = 0.0f;
         }
         if (received[0] > 0)
         { // Found
-            printf("FUNd\n");
             struct tm tolocal;
             time_t cast_time = (time_t)received[0];
             tolocal = *localtime(&cast_time);
             strftime(readable_timestamp, sizeof(readable_timestamp), "%Y-%m-%d %H:%M:%S %Z", &tolocal);
-            printf("done finded\n");
             // printf("MAtch: %s, %f!\n", readable_timestamp, received[1]);
+            success ++;
         }
         else{
             // Log the lack of findage.  If the satellite failed, log that too
         }
+        printf("Ended\n");
     }
     int flag = 0;
-    printf("Server Finalising\n");
 
     MPI_Send(&flag, 1, MPI_INT, SERVER_ID, SERVER_STOP, MPI_COMM_WORLD);
     printf("Server Finalised\n");
