@@ -11,8 +11,8 @@
 #include <unistd.h>
 #include <math.h>
 #include <stdbool.h>
-#define ITERATIONS 10000      // The number of loops in the server and satellite
-#define INTERVAL 10 * 1000    // How frequently the main processor will check for updates from nodes (in microseconds)
+#define ITERATIONS 10         // The number of loops in the server and satellite
+#define INTERVAL 100 * 1000   // How frequently the main processor will check for updates from nodes (in microseconds)
 #define SPLITTER 157          // Divide random numbers by this to make them floats.  This number is a prime
 #define THRESHOLD 80.0f       // The temperature that evokes a positive response (degrees)
 #define MOD_DENOMINATOR 60.0f // The number the generated temperature is modded by.  Determines the upper range of the generated temperature
@@ -30,6 +30,7 @@ struct Sat_Cache // The structure of the satellite cache
     float temperature_array[SATELLITE_CACHE];  // Stores the previous N temperatures (tmeperature 2 corresponds to timestamp 2, etc.)
     int coordinate_array[SATELLITE_CACHE][2];  // Stores the previous N coordinates associated with the above information
     bool process;                              // If this is keep processing, else stop.
+    int index;                                 // The index of the current start of the circular arrays
 };
 int server_control();
 void satellite(struct Sat_Cache *Cache);
@@ -73,7 +74,9 @@ int server_control()
 {
 
     struct Sat_Cache Cache;
-    Cache.process = true;  // Default this to true
+    Cache.process = true; // Default this to true
+    Cache.index = 0;      // Default this to 0
+
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, (void *)satellite, &Cache); // Activate the satellite.  We pass the address of the cache as this is all the thread takes
     server(&Cache);
@@ -87,25 +90,23 @@ void satellite(struct Sat_Cache *Cache)
     // The satellite will only write to coordinate array, temperature array, and the timestamp array.
     // It will read the processing variable
     printf("Satellite\n");
-    int index_count = 0; // This keeps track of the index of the memory array
+    Cache->index = 0; // This keeps track of the index of the memory array
 
     while (Cache->process) // Continue while the processing variable is true
     {
         usleep(INTERVAL); // Sleep for a set time
             // Must use -> as Cache came in as a pointer
 
-        float temperature = generate_temp();  // A random temperature in range
-        Cache->timestamp_array[index_count] = time(NULL);  // Store the timestamp
-        Cache->temperature_array[index_count] = temperature;  // Store the generated temp
-        Cache->coordinate_array[index_count][0] = rand() % COLUMNS;  // Get the coordinates stored, in X, Y orientation
-        Cache->coordinate_array[index_count][1] = rand() % ROWS;
+        float temperature = generate_temp();                         // A random temperature in range
+        Cache->timestamp_array[Cache->index] = time(NULL);           // Store the timestamp
+        Cache->temperature_array[Cache->index] = temperature;        // Store the generated temp
+        Cache->coordinate_array[Cache->index][0] = rand() % COLUMNS; // Get the coordinates stored, in X, Y orientation
+        Cache->coordinate_array[Cache->index][1] = rand() % ROWS;
 
         // Increment the counter variable, wrapping around when it goes over
-        index_count++;
-        index_count = index_count % SATELLITE_CACHE; // Make sure it doesn't go above the limit
-
+        Cache->index++;
+        Cache->index = Cache->index % SATELLITE_CACHE; // Make sure it doesn't go above the limit
     }
-
 }
 
 void server(struct Sat_Cache *Cache)
@@ -117,12 +118,27 @@ void server(struct Sat_Cache *Cache)
     for (int counter = 0; counter < ITERATIONS; counter++)
     {                     // This is the mainloop
         usleep(INTERVAL); // Sleep for a set time
-        printf("Data: %d, %d.  %f.  %u\n", Cache->coordinate_array[0][0], Cache->coordinate_array[0][1], Cache->temperature_array[0], Cache->timestamp_array[0]);
+
+        // Now, check if there is any entry from the satellite that matches the node coords
+        // To do this, loop backwards through the array starting from the current "head", then restarting when the end is reached
+        // This ensures we take the latest first
+        printf("_______\n");
+
+        int index = Cache->index;
+        do
+        {
+            index--;  // Decrement at the beginning
+            if (index == -1)
+            {
+                index = SATELLITE_CACHE - 1; // Reset to the end of the array
+            }
+            // printf("Data: %d, %d.  %f.  %u\n", Cache->coordinate_array[index][0], Cache->coordinate_array[index][1], Cache->temperature_array[index], Cache->timestamp_array[index]);
+            printf("%d\n", index);
+        } while(index != Cache->index);
 
     }
-    Cache->process = false;  // Tell the other thread to stop
+    Cache->process = false; // Tell the other thread to stop
 }
-
 
 // Node code
 
