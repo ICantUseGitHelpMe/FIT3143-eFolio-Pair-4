@@ -148,6 +148,7 @@ void server(struct Sat_Cache *Cache)
             if (Cache->coordinate_array[index][0] == node_x && Cache->coordinate_array[index][1] == node_y)
             {
                 // The node has a reported temperature in the memory cache of the satellite
+                // TODO: Replace with fileout
                 printf("Data: %d, %d.  %f.  %u\n", Cache->coordinate_array[index][0], Cache->coordinate_array[index][1], Cache->temperature_array[index], Cache->timestamp_array[index]);
                 found_entry = true;
                 break; // Don't continue, in case it finds an older (outdated) response that we don't want to use
@@ -156,9 +157,11 @@ void server(struct Sat_Cache *Cache)
 
         if (!found_entry)
         {
+            // TODO: Replace with fileout
             printf("Satellite has no cached entry for this node!\n");
         }
-        
+        // TODO: Report the time difference between the node and this process.  Record the time at the start of the loop
+
     }
     Cache->process = false; // Tell the other thread to stop
 }
