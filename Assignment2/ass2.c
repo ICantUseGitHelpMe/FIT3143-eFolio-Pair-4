@@ -10,6 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <math.h>
+#include <stdbool.h>
 #define ITERATIONS 10000      // The number of loops in the server and satellite
 #define INTERVAL 10 * 1000    // How frequently the main processor will check for updates from nodes (in microseconds)
 #define SPLITTER 157          // Divide random numbers by this to make them floats.  This number is a prime
@@ -19,18 +20,16 @@
 #define SATELLITE_CACHE 5     // The number of elements the satellite will keep in its memory
 #define ROWS 2                // The number of rows of nodes
 #define COLUMNS 2             // The number of columns of nodes
-#define BASE_REQUEST 99       // The Tag used for the requests to the base
-#define SATELLITE_REQUEST 77  // The Tag used for requests to the satellite
-#define SERVER_STOP 3         // The Tag used for the base stations stopping the satellite
 #define SERVER_ID 0           // The rank of the server node
-// Server headers
 
+// Server headers
 
 struct Sat_Cache // The structure of the satellite cache
 {
     unsigned timestamp_array[SATELLITE_CACHE]; // Stores the previous N timestamps
     float temperature_array[SATELLITE_CACHE];  // Stores the previous N temperatures (tmeperature 2 corresponds to timestamp 2, etc.)
     int coordinate_array[SATELLITE_CACHE][2];  // Stores the previous N coordinates associated with the above information
+    bool process;                              // If this is keep processing, else stop.
 };
 int server_control();
 void satellite(struct Sat_Cache *Cache);
@@ -74,27 +73,58 @@ int server_control()
 {
 
     struct Sat_Cache Cache;
+    Cache.process = true;  // Default this to true
     pthread_t thread_id;
-    pthread_create(&thread_id, NULL, (void *)satellite, &Cache); // Activate the satellite
+    pthread_create(&thread_id, NULL, (void *)satellite, &Cache); // Activate the satellite.  We pass the address of the cache as this is all the thread takes
     server(&Cache);
     pthread_join(thread_id, NULL);
 
     return 0;
 }
 
-void satellite (struct Sat_Cache *Cache){
+void satellite(struct Sat_Cache *Cache)
+{
+    // The satellite will only write to coordinate array, temperature array, and the timestamp array.
+    // It will read the processing variable
     printf("Satellite\n");
-    Cache->coordinate_array[0][0] = 0;
-    Cache->coordinate_array[0][1] = 2;
-    Cache->temperature_array[0] = 1000.0;
-    Cache->timestamp_array[0] = 1233455;
+    int index_count = 0; // This keeps track of the index of the memory array
+
+    while (Cache->process) // Continue while the processing variable is true
+    {
+        usleep(INTERVAL); // Sleep for a set time
+            // Must use -> as Cache came in as a pointer
+        // Cache->coordinate_array[0][0] = 0;
+        // Cache->coordinate_array[0][1] = 2;
+        // Cache->temperature_array[0] = 1000.0;
+        // Cache->timestamp_array[0] = 1233455;
+
+        float temperature = generate_temp();  // A random temperature in range
+        Cache->timestamp_array[index_count] = time(NULL);  // Store the timestamp
+        Cache->temperature_array[index_count] = temperature;  // Store the generated temp
+        Cache->coordinate_array[index_count][0] = rand() % COLUMNS;  // Get the coordinates stored, in X, Y orientation
+        Cache->coordinate_array[index_count][1] = rand() % ROWS;
+
+        // Increment the counter variable, wrapping around when it goes over
+        index_count++;
+        index_count = index_count % SATELLITE_CACHE; // Make sure it doesn't go above the limit
+
+    }
+
 }
 
-void server(struct Sat_Cache *Cache){
-    printf("Server\n");
-    usleep(INTERVAL);
-    printf("Data: %d, %d.  %f.  %u\n", Cache->coordinate_array[0][0], Cache->coordinate_array[0][1], Cache->temperature_array[0], Cache->timestamp_array[0]);
+void server(struct Sat_Cache *Cache)
+{
+    // The server will write to the processing variable
+    // It will only read from the coordinate array, temperature array, and the timestamp array.
 
+    printf("Server\n");
+    for (int counter = 0; counter < ITERATIONS; counter++)
+    {                     // This is the mainloop
+        usleep(INTERVAL); // Sleep for a set time
+        printf("Data: %d, %d.  %f.  %u\n", Cache->coordinate_array[0][0], Cache->coordinate_array[0][1], Cache->temperature_array[0], Cache->timestamp_array[0]);
+
+    }
+    Cache->process = false;  // Tell the other thread to stop
 }
 
 /*
