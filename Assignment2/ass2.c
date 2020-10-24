@@ -11,13 +11,13 @@
 #include <unistd.h>
 #include <math.h>
 #include <stdbool.h>
-#define ITERATIONS 10         // The number of loops in the server and satellite
+#define ITERATIONS 100        // The number of loops in the server and satellite
 #define INTERVAL 100 * 1000   // How frequently the main processor will check for updates from nodes (in microseconds)
 #define SPLITTER 157          // Divide random numbers by this to make them floats.  This number is a prime
 #define THRESHOLD 80.0f       // The temperature that evokes a positive response (degrees)
 #define MOD_DENOMINATOR 60.0f // The number the generated temperature is modded by.  Determines the upper range of the generated temperature
 #define MIN_TEMP 25.0f        // The baseline temperature.
-#define SATELLITE_CACHE 5     // The number of elements the satellite will keep in its memory
+#define SATELLITE_CACHE 3     // The number of elements the satellite will keep in its memory
 #define ROWS 2                // The number of rows of nodes
 #define COLUMNS 2             // The number of columns of nodes
 #define SERVER_ID 0           // The rank of the server node
@@ -62,6 +62,9 @@ int main(int argc, char **argv)
     else
     {
         // Philip, start your work here, you can use task 1 and 2 of Lab 10 as inspiration
+        // I need (at least) the reporting node x and y, and the timestamp in the messages you send
+        // Also you MAY want to consider using POSIX threads (pthreads, like what I've used) to make more threads
+        // Otherwise we'll only have 4 nodes ever.
     }
 
     // Rejoin everything together again
@@ -76,6 +79,11 @@ int server_control()
     struct Sat_Cache Cache;
     Cache.process = true; // Default this to true
     Cache.index = 0;      // Default this to 0
+    for (int i = 0; i < SATELLITE_CACHE; i++)
+    {
+        // Default all the x coords to -1, so there is never a false positive on an uninitialised array when looking up 0,0.
+        Cache.coordinate_array[i][0] = -1;
+    }
 
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, (void *)satellite, &Cache); // Activate the satellite.  We pass the address of the cache as this is all the thread takes
@@ -95,7 +103,7 @@ void satellite(struct Sat_Cache *Cache)
     while (Cache->process) // Continue while the processing variable is true
     {
         usleep(INTERVAL); // Sleep for a set time
-            // Must use -> as Cache came in as a pointer
+        // Must use -> as Cache came in as a pointer
 
         float temperature = generate_temp();                         // A random temperature in range
         Cache->timestamp_array[Cache->index] = time(NULL);           // Store the timestamp
@@ -124,18 +132,33 @@ void server(struct Sat_Cache *Cache)
         // This ensures we take the latest first
         printf("_______\n");
 
+        int node_x = 0; // The coords of the reporting node
+        int node_y = 0;
+
         int index = Cache->index;
+        bool found_entry = false;
         do
         {
-            index--;  // Decrement at the beginning
+            index--; // Decrement at the beginning
             if (index == -1)
             {
                 index = SATELLITE_CACHE - 1; // Reset to the end of the array
             }
             // printf("Data: %d, %d.  %f.  %u\n", Cache->coordinate_array[index][0], Cache->coordinate_array[index][1], Cache->temperature_array[index], Cache->timestamp_array[index]);
-            printf("%d\n", index);
-        } while(index != Cache->index);
+            if (Cache->coordinate_array[index][0] == node_x && Cache->coordinate_array[index][1] == node_y)
+            {
+                // The node has a reported temperature in the memory cache of the satellite
+                printf("Data: %d, %d.  %f.  %u\n", Cache->coordinate_array[index][0], Cache->coordinate_array[index][1], Cache->temperature_array[index], Cache->timestamp_array[index]);
+                found_entry = true;
+                break; // Don't continue, in case it finds an older (outdated) response that we don't want to use
+            }
+        } while (index != Cache->index);
 
+        if (!found_entry)
+        {
+            printf("Satellite has no cached entry for this node!\n");
+        }
+        
     }
     Cache->process = false; // Tell the other thread to stop
 }
