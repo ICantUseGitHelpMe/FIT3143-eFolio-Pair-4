@@ -10,7 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <math.h>
-#define ITERATIONS 10000     // The number of loops in the server and satellite
+#define ITERATIONS 10000      // The number of loops in the server and satellite
 #define INTERVAL 10 * 1000    // How frequently the main processor will check for updates from nodes (in microseconds)
 #define SPLITTER 157          // Divide random numbers by this to make them floats.  This number is a prime
 #define THRESHOLD 80.0f       // The temperature that evokes a positive response (degrees)
@@ -24,10 +24,17 @@
 #define SERVER_STOP 3         // The Tag used for the base stations stopping the satellite
 #define SERVER_ID 0           // The rank of the server node
 // Server headers
-int server_control();
-void satellite();
-void server();
 
+
+struct Sat_Cache // The structure of the satellite cache
+{
+    unsigned timestamp_array[SATELLITE_CACHE]; // Stores the previous N timestamps
+    float temperature_array[SATELLITE_CACHE];  // Stores the previous N temperatures (tmeperature 2 corresponds to timestamp 2, etc.)
+    int coordinate_array[SATELLITE_CACHE][2];  // Stores the previous N coordinates associated with the above information
+};
+int server_control();
+void satellite(struct Sat_Cache *Cache);
+void server(struct Sat_Cache *Cache);
 // Node headers
 
 // General headers
@@ -65,14 +72,32 @@ int main(int argc, char **argv)
 // Server code
 int server_control()
 {
+
+    struct Sat_Cache Cache;
     pthread_t thread_id;
-    pthread_create(&thread_id, NULL, (void *)satellite, NULL); // Activate the satellite
-    server();
+    pthread_create(&thread_id, NULL, (void *)satellite, &Cache); // Activate the satellite
+    server(&Cache);
     pthread_join(thread_id, NULL);
 
     return 0;
 }
 
+void satellite (struct Sat_Cache *Cache){
+    printf("Satellite\n");
+    Cache->coordinate_array[0][0] = 0;
+    Cache->coordinate_array[0][1] = 2;
+    Cache->temperature_array[0] = 1000.0;
+    Cache->timestamp_array[0] = 1233455;
+}
+
+void server(struct Sat_Cache *Cache){
+    printf("Server\n");
+    usleep(INTERVAL);
+    printf("Data: %d, %d.  %f.  %u\n", Cache->coordinate_array[0][0], Cache->coordinate_array[0][1], Cache->temperature_array[0], Cache->timestamp_array[0]);
+
+}
+
+/*
 void satellite()
 {
     MPI_Request request;
@@ -226,7 +251,7 @@ void server()
     MPI_Send(&flag, 1, MPI_INT, SERVER_ID, SERVER_STOP, MPI_COMM_WORLD);
     printf("Server Finalised\n");
 }
-
+*/
 // Node code
 
 // General code
