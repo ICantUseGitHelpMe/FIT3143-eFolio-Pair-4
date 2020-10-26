@@ -8,6 +8,14 @@
  * Assignemnt 2
  * mpicc assignment2.c -o ass2_out -lm
  * mpirun -oversubscribe -np 21 ass2_out 4 5
+ *
+ *  README - this code currently hits deadlock when getting adjacent node temperatures
+ *      it happens because of MPI_Wait when trying to receive neighbour temperatures
+ *      on line 182 (it waits for neighbour temperature, but neighbour might be waiting 
+ *      for another temperature and so is unable to receive the request to send its own 
+ *      temperature) - I tried to use a variable to lock the process so that one node 
+ *      does this at a time, but no luck yet :/ I tried to use broadcast to update that 
+ *      variable. You the information is packaged and sent on line 197, 198 (feel free to comment that in or out when working with it~)
  */
 
 /* Gets the neighbors in a cartesian communicator
@@ -38,6 +46,7 @@
 #define ROWS 2                // The number of rows of nodes
 #define COLUMNS 2             // The number of columns of nodes
 #define SERVER_ID 0           // The rank of the server node
+#define TOLERANCE 5
 
 // Server headers
 
@@ -55,6 +64,15 @@ void server(struct Sat_Cache *Cache);
 void file_append(char *out);
 
 // Node headers
+struct Node_Report // The structure of the satellite cache
+{
+    struct timespec timestamp; 
+    int * coordinates; 
+    float node_temperature;
+    float * neighbor_temperatures;  
+};
+
+int request_temp(int requester_rank, int target_rank, MPI_Request node_send_request, MPI_Request node_recv_request, MPI_Status node_status);
 
 // General headers
 float generate_temp(); // Generate a random temperature
@@ -64,7 +82,12 @@ int main(int argc, char *argv[]) {
     int ndims=2, size, rank, reorder, my_cart_rank, ierr;
     int nrows, ncols, nbr_i_lo, nbr_i_hi, nbr_j_lo, nbr_j_hi;
     int dims[ndims], coord[ndims], wrap_around[ndims];
-    int wsn_size, base_station_id;
+    int wsn_size, base_station_id, node_request_exclusive_lock;
+    int pack_size;
+    char package_buffer[100];
+    struct Node_Report report;
+    MPI_Datatype Node_Report;
+    MPI_Request request;
     MPI_Comm comm2D;
 
     // Initialize MPI environment
@@ -98,6 +121,9 @@ int main(int argc, char *argv[]) {
     ierr = 0;
     ierr = MPI_Cart_create(MPI_COMM_WORLD, ndims, dims, wrap_around, reorder, &comm2D);
     if(ierr != 0) printf("ERROR[%d] creating CART\n",ierr);
+    MPI_Request node_send_requests[base_station_id], node_recv_requests[base_station_id];
+    MPI_Status node_status[base_station_id];
+    node_request_exclusive_lock = base_station_id;
 
     if(rank == base_station_id){
         printf("I am base station - rank:%d. Comm Size: %d: Grid Dimension = [%d x %d] \n",rank,size,dims[0],dims[1]);
@@ -117,14 +143,78 @@ int main(int argc, char *argv[]) {
         // Do WSN Node stuff here
         printf("Global rank: %d. Cart rank: %d. Coord: (%d, %d). Left: %d. Right: %d. Top: %d. Bottom: %d\n", rank, my_cart_rank, coord[0], coord[1], nbr_j_lo, nbr_j_hi, nbr_i_lo, nbr_i_hi);
         
-        // READ ME
-        // Ethan will need (at least) the reporting node's x, y and the timestamp in the messages you send
-        
-        // Get the current time using this, otherwise we won't have miliseconds
-        // struct timespec t_spec;
-        // clock_gettime(CLOCK_REALTIME, &t_spec);
-        // unsigned long now = (t_spec.tv_nsec + t_spec.tv_sec*1e9) * 1e-6;  // This converts from nanoseconds to miliseconds
-        // the unsigned long will have the time, you may have to experiment to see what MPI has that represents this
+        int neighbor_ranks[4];
+        neighbor_ranks[0] = nbr_i_lo;           // Top neighbor
+        neighbor_ranks[1] = nbr_j_hi;           // Right neighbor
+        neighbor_ranks[2] = nbr_i_hi;           // Bottom neighbor
+        neighbor_ranks[3] = nbr_j_lo;           // Left neighbor
+
+        do {
+            // Get current time
+            struct timespec t_spec;
+            clock_gettime(CLOCK_REALTIME, &t_spec);
+            unsigned long now = (t_spec.tv_nsec + t_spec.tv_sec*1e9) * 1e-6;  // This converts from nanoseconds to miliseconds
+
+            // Generate node temperature
+            float node_temperature = generate_temp();
+            float rank_temperature_data[4] = {0};
+            rank_temperature_data[0] = node_temperature;
+            printf("[Rank %d]   Sensor: (%d, %d) Temperature: %f \n", rank, coord[0], coord[1], node_temperature);
+            
+            printf("[Rank %d]   node_request_exclusive_lock allocated to %d\n", rank, node_request_exclusive_lock);
+            if (node_temperature > THRESHOLD && node_request_exclusive_lock == base_station_id){
+                int notify_base[4] = {0};
+                float neighbor_temperatures[4] = {-2};
+
+                node_request_exclusive_lock = rank;
+                MPI_Bcast(&node_request_exclusive_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
+                printf("[Rank %d]   node_request_exclusive_lock ALLOCATED to %d\n", rank, node_request_exclusive_lock);
+                // printf("[Rank %d]   node_request_exclusive_lock allocated to %d\n", rank, node_request_exclusive_lock);
+                
+                printf("[Rank %d]   Sending requests to neighbouring ranks...\n", rank);
+                for (int iterator = 0; iterator < 4; ++iterator){
+                    int target_rank = neighbor_ranks[iterator];
+                    if (target_rank != -2){
+                        printf("[Rank %d]   Sending request to rank %d\n", rank, target_rank);
+                        float target_rank_temp;
+                        MPI_Request node_send_request = node_send_requests[rank], node_recv_request = node_recv_requests[rank];
+                        MPI_Status current_node_status = node_status[rank];
+                        target_rank_temp = request_temp(rank, target_rank, node_send_request, node_recv_request, current_node_status);
+                        printf("[Rank %d]   Target rank: %d - Temperature: %f\n", rank, target_rank, target_rank_temp);
+
+                        neighbor_temperatures[iterator] = target_rank_temp;
+                        int temperature_difference = (target_rank_temp - node_temperature) * -1;
+                        if (temperature_difference > TOLERANCE){
+                            notify_base[iterator] = 1;
+                        }
+                    }
+                }
+
+                struct Node_Report report = {t_spec, coord, node_temperature, neighbor_temperatures};
+                pack_size = 0;                                                                  
+                MPI_Pack(&report, 1, Node_Report, package_buffer, 100, &pack_size, MPI_COMM_WORLD);
+
+                MPI_Isend(package_buffer, 1, MPI_DOUBLE, base_station_id, 0, MPI_COMM_WORLD, &node_send_requests[rank]);
+                MPI_Wait(&node_send_requests[rank], MPI_STATUS_IGNORE);
+
+                node_request_exclusive_lock = base_station_id;
+                MPI_Bcast(&node_request_exclusive_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
+                printf("[Rank %d]   node_request_exclusive_lock reset to %d\n", rank, node_request_exclusive_lock);
+            }
+
+            for (int iterator = 0; iterator < 4; ++iterator){
+                int target_rank = neighbor_ranks[iterator];
+                int buffer[4] = {0};
+                // MPI_Irecv( buffer, 1, MPI_INT, target_rank, 1, MPI_COMM_WORLD, &request);
+                MPI_Irecv( buffer, 1, MPI_INT, target_rank, MPI_ANY_TAG, MPI_COMM_WORLD, &node_recv_requests[target_rank]);
+                // MPI_Wait(&node_requests[target_rank], &node_status[target_rank]);
+                if (buffer[0] == 1){
+                    printf("[Rank %d]   Sending my temperature: %f\n", rank, rank_temperature_data[0]);
+                    MPI_Isend(rank_temperature_data , 1, MPI_DOUBLE, target_rank, 0, MPI_COMM_WORLD, &node_send_requests[target_rank]);
+                    // MPI_Wait(&node_requests[target_rank], &node_status[target_rank]);
+                }
+            }
+        } while (true);
 
         fflush(stdout);
         MPI_Comm_free( &comm2D );
@@ -272,6 +362,26 @@ void file_append(char *out)
 }
 
 // Node code
+int request_temp(int requester_rank, int target_rank, MPI_Request node_send_request, MPI_Request node_recv_request, MPI_Status node_status)
+{
+    int buffer[4] = {0}, requested_temp, probe_flag;
+    float requested_temp_data[4] = {0};
+    buffer[0] = 1;
+    printf("[Rank %d]   ISend buffer output %d %d %d %d\n", requester_rank, buffer[0], buffer[1], buffer[2], buffer[3]);
+    MPI_Isend( buffer, 1, MPI_INT, target_rank, 1, MPI_COMM_WORLD, &node_send_request);
+    // MPI_Wait(&node_request, &node_status);
+    
+    // MPI_Iprobe(requester_rank, 1, MPI_COMM_WORLD, &probe_flag, &node_status);
+    // printf("[Rank %d]   Iprobe flag %d\n", requester_rank, probe_flag);
+
+
+    MPI_Irecv( requested_temp_data, 1, MPI_DOUBLE, target_rank, 0, MPI_COMM_WORLD, &node_recv_request);
+    MPI_Wait(&node_recv_request, MPI_STATUS_IGNORE);
+    printf("[Rank %d]   Irecv data output %f %f %f %f\n", requester_rank, requested_temp_data[0], requested_temp_data[1], requested_temp_data[2], requested_temp_data[3]);
+    requested_temp = requested_temp_data[0];
+
+    return requested_temp;
+}
 
 // General code
 float generate_temp()
