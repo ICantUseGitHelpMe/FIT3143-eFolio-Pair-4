@@ -1,7 +1,21 @@
-// Assignment 2
-// mpicc ass2.c -o ass2_out -lm
-// mpirun -np 4 ass2_out
+/* FIT3143 - Parallel Computing 
+ * Lab Time         Tuesday 18:00-20:00
+ * Lab ID           6
+ * Pair Number      4
+ * Group Members    Philip Chen 	27833725
+ *                  Ethan Nardella	29723299
+ * --------------------------------------------------
+ * Assignemnt 2
+ * mpicc assignment2.c -o ass2_out -lm
+ * mpirun -oversubscribe -np 21 ass2_out 4 5
+ */
 
+/* Gets the neighbors in a cartesian communicator
+* Orginally written by Mary Thomas
+* - Updated Mar, 2015
+* Link: https://edoras.sdsu.edu/~mthomas/sp17.605/lectures/MPICart-Comms-and-Topos.pdf
+* Minor modifications to fix bugs and to revise print output
+*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -11,6 +25,9 @@
 #include <unistd.h>
 #include <math.h>
 #include <stdbool.h>
+#define SHIFT_ROW 0
+#define SHIFT_COL 1
+#define DISP 1
 #define ITERATIONS 100        // The number of loops in the server and satellite
 #define INTERVAL 100 * 1000   // How frequently the main processor will check for updates from nodes (in microseconds)
 #define SPLITTER 157          // Divide random numbers by this to make them floats.  This number is a prime
@@ -36,46 +53,83 @@ int server_control();
 void satellite(struct Sat_Cache *Cache);
 void server(struct Sat_Cache *Cache);
 void file_append(char *out);
+
 // Node headers
 
 // General headers
 float generate_temp(); // Generate a random temperature
 
-// Main loop
-int main(int argc, char **argv)
-{
-    // First, split between the server and the nodes
-    // Standard boilerplate
-    int rank, size;
-    MPI_Comm new_comm;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_split(MPI_COMM_WORLD, rank == size - 1, 0, &new_comm);
-    srand((unsigned)time(NULL) + rank); // Seed the random, uniquely for each thread
+int main(int argc, char *argv[]) {
+    // Initialize environment variables for cartesian topology and use of OpenMPI
+    int ndims=2, size, rank, reorder, my_cart_rank, ierr;
+    int nrows, ncols, nbr_i_lo, nbr_i_hi, nbr_j_lo, nbr_j_hi;
+    int dims[ndims], coord[ndims], wrap_around[ndims];
+    int wsn_size, base_station_id;
+    MPI_Comm comm2D;
 
-    //Server Controls:
-    if (rank == SERVER_ID)
-    {
+    // Initialize MPI environment
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    wsn_size = size - 1;
+
+    // Handle command line inputs
+    if (argc == 3) {
+        nrows = atoi (argv[1]);
+        ncols = atoi (argv[2]);
+        dims[0] = nrows;                                    // Number of rows
+        dims[1] = ncols;                                    // Number of columns
+        base_station_id = nrows*ncols;
+        if( base_station_id + 1 != size) {                      // Check that number of rows * number of columns + 1 = size (extra 1 for base station)
+            if( rank == base_station_id ) printf("ERROR: nrows*ncols)=%d * %d = %d != %d\n", nrows, ncols, nrows*ncols,size);
+            MPI_Finalize();
+            return 0;
+        }
+    } else {
+        nrows=ncols=(int)sqrt(size);
+        dims[0]=dims[1]=0;
+    }
+    
+    // Create cartesian topology
+    MPI_Dims_create(wsn_size, ndims, dims);
+    // Cartesian mapping
+    wrap_around[0] = wrap_around[1] = 0; 
+    reorder = 1;
+    ierr = 0;
+    ierr = MPI_Cart_create(MPI_COMM_WORLD, ndims, dims, wrap_around, reorder, &comm2D);
+    if(ierr != 0) printf("ERROR[%d] creating CART\n",ierr);
+
+    if(rank == base_station_id){
+        printf("I am base station - rank:%d. Comm Size: %d: Grid Dimension = [%d x %d] \n",rank,size,dims[0],dims[1]);
         server_control();
     }
-    // Node controls
-    else
-    {
+    else{
+        // Get current coordinates
+        MPI_Cart_coords(comm2D, rank, ndims, coord);
+        // Use current coordinates to find cartesian rank
+        MPI_Cart_rank(comm2D, coord, &my_cart_rank);
+        // Get neighbours
+        /* axis=0 ==> shift along the rows: P[my_row-1]: P[me] : P[my_row+1] 
+         * axis=1 ==> shift along the columns P[my_col-1]: P[me] : P[my_col+1] */
+        MPI_Cart_shift( comm2D, SHIFT_ROW, DISP, &nbr_i_lo, &nbr_i_hi);
+        MPI_Cart_shift( comm2D, SHIFT_COL, DISP, &nbr_j_lo, &nbr_j_hi);
+        
+        // Do WSN Node stuff here
+        printf("Global rank: %d. Cart rank: %d. Coord: (%d, %d). Left: %d. Right: %d. Top: %d. Bottom: %d\n", rank, my_cart_rank, coord[0], coord[1], nbr_j_lo, nbr_j_hi, nbr_i_lo, nbr_i_hi);
+        
         // READ ME
-        // Philip, start your work here, you can use task 1 and 2 of Lab 10 as inspiration
-        // I need (at least) the reporting node's x, y and the timestamp in the messages you send
-        // Also you MAY want to consider using POSIX threads (pthreads, like what I've used) to make more threads
-        // Otherwise we'll only have 4 nodes ever.
-
+        // Ethan will need (at least) the reporting node's x, y and the timestamp in the messages you send
+        
         // Get the current time using this, otherwise we won't have miliseconds
         // struct timespec t_spec;
         // clock_gettime(CLOCK_REALTIME, &t_spec);
         // unsigned long now = (t_spec.tv_nsec + t_spec.tv_sec*1e9) * 1e-6;  // This converts from nanoseconds to miliseconds
         // the unsigned long will have the time, you may have to experiment to see what MPI has that represents this
+
+        fflush(stdout);
+        MPI_Comm_free( &comm2D );
     }
 
-    // Rejoin everything together again
     MPI_Finalize();
     return 0;
 }
