@@ -47,7 +47,8 @@
 #define COLUMNS 2             // The number of columns of nodes
 #define SERVER_ID 0           // The rank of the server node
 #define TOLERANCE 5
-
+#define GET_TEMPS 1 // The tag for a node asking for its neighbours' temperatures
+#define GIVE_TEMPS 2 // The tag for a node giving its temperature
 // Server headers
 
 struct Sat_Cache // The structure of the satellite cache
@@ -66,10 +67,10 @@ void file_append(char *out);
 // Node headers
 struct Node_Report // The structure of the satellite cache
 {
-    struct timespec timestamp; 
-    int * coordinates; 
+    struct timespec timestamp;
+    int *coordinates;
     float node_temperature;
-    float * neighbor_temperatures;  
+    float *neighbor_temperatures;
 };
 
 int request_temp(int requester_rank, int target_rank, MPI_Request node_send_request, MPI_Request node_recv_request, MPI_Status node_status);
@@ -77,9 +78,10 @@ int request_temp(int requester_rank, int target_rank, MPI_Request node_send_requ
 // General headers
 float generate_temp(); // Generate a random temperature
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     // Initialize environment variables for cartesian topology and use of OpenMPI
-    int ndims=2, size, rank, reorder, my_cart_rank, ierr;
+    int ndims = 2, size, rank, reorder, my_cart_rank, ierr;
     int nrows, ncols, nbr_i_lo, nbr_i_hi, nbr_j_lo, nbr_j_hi;
     int dims[ndims], coord[ndims], wrap_around[ndims];
     int wsn_size, base_station_id, node_request_exclusive_lock;
@@ -97,39 +99,47 @@ int main(int argc, char *argv[]) {
     wsn_size = size - 1;
 
     // Handle command line inputs
-    if (argc == 3) {
-        nrows = atoi (argv[1]);
-        ncols = atoi (argv[2]);
-        dims[0] = nrows;                                    // Number of rows
-        dims[1] = ncols;                                    // Number of columns
-        base_station_id = nrows*ncols;
-        if( base_station_id + 1 != size) {                      // Check that number of rows * number of columns + 1 = size (extra 1 for base station)
-            if( rank == base_station_id ) printf("ERROR: nrows*ncols)=%d * %d = %d != %d\n", nrows, ncols, nrows*ncols,size);
+    if (argc == 3)
+    {
+        nrows = atoi(argv[1]);
+        ncols = atoi(argv[2]);
+        dims[0] = nrows; // Number of rows
+        dims[1] = ncols; // Number of columns
+        base_station_id = nrows * ncols;
+        if (base_station_id + 1 != size)
+        { // Check that number of rows * number of columns + 1 = size (extra 1 for base station)
+            if (rank == base_station_id)
+                printf("ERROR: nrows*ncols)=%d * %d = %d != %d\n", nrows, ncols, nrows * ncols, size);
             MPI_Finalize();
             return 0;
         }
-    } else {
-        nrows=ncols=(int)sqrt(size);
-        dims[0]=dims[1]=0;
     }
-    
+    else
+    {
+        nrows = ncols = (int)sqrt(size);
+        dims[0] = dims[1] = 0;
+    }
+
     // Create cartesian topology
     MPI_Dims_create(wsn_size, ndims, dims);
     // Cartesian mapping
-    wrap_around[0] = wrap_around[1] = 0; 
+    wrap_around[0] = wrap_around[1] = 0;
     reorder = 1;
     ierr = 0;
     ierr = MPI_Cart_create(MPI_COMM_WORLD, ndims, dims, wrap_around, reorder, &comm2D);
-    if(ierr != 0) printf("ERROR[%d] creating CART\n",ierr);
+    if (ierr != 0)
+        printf("ERROR[%d] creating CART\n", ierr);
     MPI_Request node_send_requests[base_station_id], node_recv_requests[base_station_id];
     MPI_Status node_status[base_station_id];
     node_request_exclusive_lock = base_station_id;
 
-    if(rank == base_station_id){
-        printf("I am base station - rank:%d. Comm Size: %d: Grid Dimension = [%d x %d] \n",rank,size,dims[0],dims[1]);
+    if (rank == base_station_id)
+    {
+        printf("I am base station - rank:%d. Comm Size: %d: Grid Dimension = [%d x %d] \n", rank, size, dims[0], dims[1]);
         server_control();
     }
-    else{
+    else
+    {
         // Get current coordinates
         MPI_Cart_coords(comm2D, rank, ndims, coord);
         // Use current coordinates to find cartesian rank
@@ -137,87 +147,125 @@ int main(int argc, char *argv[]) {
         // Get neighbours
         /* axis=0 ==> shift along the rows: P[my_row-1]: P[me] : P[my_row+1] 
          * axis=1 ==> shift along the columns P[my_col-1]: P[me] : P[my_col+1] */
-        MPI_Cart_shift( comm2D, SHIFT_ROW, DISP, &nbr_i_lo, &nbr_i_hi);
-        MPI_Cart_shift( comm2D, SHIFT_COL, DISP, &nbr_j_lo, &nbr_j_hi);
-        
+        MPI_Cart_shift(comm2D, SHIFT_ROW, DISP, &nbr_i_lo, &nbr_i_hi);
+        MPI_Cart_shift(comm2D, SHIFT_COL, DISP, &nbr_j_lo, &nbr_j_hi);
+
         // Do WSN Node stuff here
         printf("Global rank: %d. Cart rank: %d. Coord: (%d, %d). Left: %d. Right: %d. Top: %d. Bottom: %d\n", rank, my_cart_rank, coord[0], coord[1], nbr_j_lo, nbr_j_hi, nbr_i_lo, nbr_i_hi);
-        
-        int neighbor_ranks[4];
-        neighbor_ranks[0] = nbr_i_lo;           // Top neighbor
-        neighbor_ranks[1] = nbr_j_hi;           // Right neighbor
-        neighbor_ranks[2] = nbr_i_hi;           // Bottom neighbor
-        neighbor_ranks[3] = nbr_j_lo;           // Left neighbor
 
-        do {
+        int neighbor_ranks[4];
+        neighbor_ranks[0] = nbr_i_lo; // Top neighbor
+        neighbor_ranks[1] = nbr_j_hi; // Right neighbor
+        neighbor_ranks[2] = nbr_i_hi; // Bottom neighbor
+        neighbor_ranks[3] = nbr_j_lo; // Left neighbor
+
+        do
+        {
             // Get current time
             struct timespec t_spec;
             clock_gettime(CLOCK_REALTIME, &t_spec);
-            unsigned long now = (t_spec.tv_nsec + t_spec.tv_sec*1e9) * 1e-6;  // This converts from nanoseconds to miliseconds
+            unsigned long now = (t_spec.tv_nsec + t_spec.tv_sec * 1e9) * 1e-6; // This converts from nanoseconds to miliseconds
 
             // Generate node temperature
             float node_temperature = generate_temp();
             float rank_temperature_data[4] = {0};
             rank_temperature_data[0] = node_temperature;
             printf("[Rank %d]   Sensor: (%d, %d) Temperature: %f \n", rank, coord[0], coord[1], node_temperature);
-            
+
             printf("[Rank %d]   node_request_exclusive_lock allocated to %d\n", rank, node_request_exclusive_lock);
-            if (node_temperature > THRESHOLD && node_request_exclusive_lock == base_station_id){
-                int notify_base[4] = {0};
-                float neighbor_temperatures[4] = {-2};
+            if (node_temperature > THRESHOLD)
+            {
+                int notify_base[4] = {0, 0, 0, 0};
+                float neighbor_temperatures[4] = {-1, -1, -1, -1};
 
                 node_request_exclusive_lock = rank;
-                MPI_Bcast(&node_request_exclusive_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
+                // MPI_Bcast(&node_request_exclusive_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
                 printf("[Rank %d]   node_request_exclusive_lock ALLOCATED to %d\n", rank, node_request_exclusive_lock);
                 // printf("[Rank %d]   node_request_exclusive_lock allocated to %d\n", rank, node_request_exclusive_lock);
-                
+
                 printf("[Rank %d]   Sending requests to neighbouring ranks...\n", rank);
-                for (int iterator = 0; iterator < 4; ++iterator){
+
+                MPI_Request node_recv_requests[4]; // Requests for all the receives
+                int valid_neighbours = 0;          //  Increment this by one for eah valid neighbour found; to be used as an index
+
+                for (int iterator = 0; iterator < 4; ++iterator)
+                {
                     int target_rank = neighbor_ranks[iterator];
-                    if (target_rank != -2){
+                    if (target_rank != -2)
+                    {
                         printf("[Rank %d]   Sending request to rank %d\n", rank, target_rank);
                         float target_rank_temp;
-                        MPI_Request node_send_request = node_send_requests[rank], node_recv_request = node_recv_requests[rank];
-                        MPI_Status current_node_status = node_status[rank];
-                        target_rank_temp = request_temp(rank, target_rank, node_send_request, node_recv_request, current_node_status);
-                        printf("[Rank %d]   Target rank: %d - Temperature: %f\n", rank, target_rank, target_rank_temp);
+                        MPI_Request node_send_request;
 
-                        neighbor_temperatures[iterator] = target_rank_temp;
-                        int temperature_difference = (target_rank_temp - node_temperature) * -1;
-                        if (temperature_difference > TOLERANCE){
-                            notify_base[iterator] = 1;
-                        }
+                        int info = 1; // The data we send
+                        MPI_Request ask_temp;
+                        MPI_Isend(&info, 1, MPI_INT, target_rank, GET_TEMPS, MPI_COMM_WORLD, &ask_temp);
+
+                        MPI_Irecv(&neighbor_temperatures[valid_neighbours], 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &node_recv_requests[valid_neighbours]);
+                        valid_neighbours++; // Increment as we have found a target (MUST BE AFTER IRECV)
                     }
                 }
 
+                usleep(INTERVAL);  // Sleep so it doesn't rapid-fire generate temperatures.  Used here, it doubles as a timeout
+                // MPI_TEST HERE
+                int lost_values = 0;  // Stores the number of timed out requests
+                for (int i = 0; i < valid_neighbours; i++)
+                {
+                    int is_complete;
+                    MPI_Test( &node_recv_requests[i], &is_complete , MPI_STATUS_IGNORE);  // Check if each response has come in
+                    if (lost_values == 0){
+                        // Destroy the request (timeout)
+                        MPI_Cancel( &node_recv_requests[i]);
+                        MPI_Request_free( &node_recv_requests[i]);
+                    }
+                    lost_values += 1 - is_complete;  // +1 if a fail, +0 on success
+                }
+                if (lost_values > 0){
+                    continue;  // Timeout, skip
+                }
+
+                int num_found = 0;  // Notify base if this is two or more
+                for (int i = 0; i < valid_neighbours; i++)
+                {
+                    int target_rank_temp = neighbor_temperatures[i];
+                    int temperature_difference = abs((target_rank_temp - node_temperature));
+                    if (temperature_difference <= TOLERANCE)
+                    {
+                        num_found ++;  // Within range
+                    }
+                }
+                // Notify base
                 struct Node_Report report = {t_spec, coord, node_temperature, neighbor_temperatures};
-                pack_size = 0;                                                                  
+                pack_size = 0;
                 MPI_Pack(&report, 1, Node_Report, package_buffer, 100, &pack_size, MPI_COMM_WORLD);
 
-                MPI_Isend(package_buffer, 1, MPI_DOUBLE, base_station_id, 0, MPI_COMM_WORLD, &node_send_requests[rank]);
-                MPI_Wait(&node_send_requests[rank], MPI_STATUS_IGNORE);
+                MPI_Request sender;
+                MPI_Isend(package_buffer, 1, MPI_DOUBLE, base_station_id, 0, MPI_COMM_WORLD, &sender);
+                // MPI_Wait(&node_send_requests[rank], MPI_STATUS_IGNORE);
 
-                node_request_exclusive_lock = base_station_id;
-                MPI_Bcast(&node_request_exclusive_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
-                printf("[Rank %d]   node_request_exclusive_lock reset to %d\n", rank, node_request_exclusive_lock);
+                // node_request_exclusive_lock = base_station_id;
+                // MPI_Bcast(&node_request_exclusive_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
+                // printf("[Rank %d]   node_request_exclusive_lock reset to %d\n", rank, node_request_exclusive_lock);
             }
 
-            for (int iterator = 0; iterator < 4; ++iterator){
+            for (int iterator = 0; iterator < 4; ++iterator)
+            {
                 int target_rank = neighbor_ranks[iterator];
                 int buffer[4] = {0};
                 // MPI_Irecv( buffer, 1, MPI_INT, target_rank, 1, MPI_COMM_WORLD, &request);
-                MPI_Irecv( buffer, 1, MPI_INT, target_rank, MPI_ANY_TAG, MPI_COMM_WORLD, &node_recv_requests[target_rank]);
+                MPI_Irecv(buffer, 1, MPI_INT, target_rank, MPI_ANY_TAG, MPI_COMM_WORLD, &node_recv_requests[target_rank]);
                 // MPI_Wait(&node_requests[target_rank], &node_status[target_rank]);
-                if (buffer[0] == 1){
+                if (buffer[0] == 1)
+                {
                     printf("[Rank %d]   Sending my temperature: %f\n", rank, rank_temperature_data[0]);
-                    MPI_Isend(rank_temperature_data , 1, MPI_DOUBLE, target_rank, 0, MPI_COMM_WORLD, &node_send_requests[target_rank]);
+                    MPI_Isend(rank_temperature_data, 1, MPI_DOUBLE, target_rank, 0, MPI_COMM_WORLD, &node_send_requests[target_rank]);
                     // MPI_Wait(&node_requests[target_rank], &node_status[target_rank]);
                 }
             }
         } while (true);
 
         fflush(stdout);
-        MPI_Comm_free( &comm2D );
+        MPI_Comm_free(&comm2D);
     }
 
     MPI_Finalize();
@@ -368,14 +416,13 @@ int request_temp(int requester_rank, int target_rank, MPI_Request node_send_requ
     float requested_temp_data[4] = {0};
     buffer[0] = 1;
     printf("[Rank %d]   ISend buffer output %d %d %d %d\n", requester_rank, buffer[0], buffer[1], buffer[2], buffer[3]);
-    MPI_Isend( buffer, 1, MPI_INT, target_rank, 1, MPI_COMM_WORLD, &node_send_request);
+    MPI_Isend(buffer, 1, MPI_INT, target_rank, 1, MPI_COMM_WORLD, &node_send_request);
     // MPI_Wait(&node_request, &node_status);
-    
+
     // MPI_Iprobe(requester_rank, 1, MPI_COMM_WORLD, &probe_flag, &node_status);
     // printf("[Rank %d]   Iprobe flag %d\n", requester_rank, probe_flag);
 
-
-    MPI_Irecv( requested_temp_data, 1, MPI_DOUBLE, target_rank, 0, MPI_COMM_WORLD, &node_recv_request);
+    MPI_Irecv(requested_temp_data, 1, MPI_DOUBLE, target_rank, 0, MPI_COMM_WORLD, &node_recv_request);
     MPI_Wait(&node_recv_request, MPI_STATUS_IGNORE);
     printf("[Rank %d]   Irecv data output %f %f %f %f\n", requester_rank, requested_temp_data[0], requested_temp_data[1], requested_temp_data[2], requested_temp_data[3]);
     requested_temp = requested_temp_data[0];
