@@ -1,4 +1,4 @@
 assignment: ass2.c
 	clear
 	mpicc ass2.c -o ass2_out -lm
-	mpirun -np 4 ass2_out
+	mpirun -oversubscribe -np 21 ass2_out 4 5

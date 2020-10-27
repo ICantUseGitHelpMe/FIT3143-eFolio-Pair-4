@@ -212,6 +212,8 @@ int main(int argc, char *argv[])
                 usleep(INTERVAL); // Sleep so it doesn't rapid-fire generate temperatures.  Used here, it doubles as a timeout
                 // MPI_TEST HERE
                 int lost_values = 0; // Stores the number of timed out requests
+                printf("[Rank %d]   SAbout to almost send\n", rank);
+
                 for (int i = 0; i < valid_neighbours; i++)
                 {
                     int is_complete;
@@ -228,6 +230,7 @@ int main(int argc, char *argv[])
                 {
                     continue; // Timeout, skip
                 }
+                printf("[Rank %d]   SsssssAbout to almost send\n", rank);
 
                 int num_found = 0; // Notify base if this is two or more
                 for (int i = 0; i < valid_neighbours; i++)
@@ -240,14 +243,53 @@ int main(int argc, char *argv[])
                     }
                 }
                 // Notify base
-                struct Node_Report report = {t_spec, coord, node_temperature, neighbor_temperatures};
-                pack_size = 0;
-                MPI_Pack(&report, 1, Node_Report, package_buffer, 100, &pack_size, MPI_COMM_WORLD);
+                // struct Node_Report report = {t_spec, coord, node_temperature, neighbor_temperatures};
 
+                /* Send:  
+                    Time
+                    X
+                    Y
+                    Temp
+                    NeighbourT1
+                    NeighbourT2
+                    NeighbourT3
+                    NeighbourT4
+                */
+                printf("[Rank %d]   Sending to chief\n", rank);
+                double send_buf[8];
+                printf("___________________________\n");
+
+                send_buf[0] = now;
+                printf("%ld\n", now);
+                send_buf[1] = coord[0];
+                printf("%d\n", coord[0]);
+
+                send_buf[2] = coord[1];
+                printf("%d\n", coord[1]);
+
+                send_buf[3] = node_temperature;
+                printf("%f\n", node_temperature);
+
+                send_buf[4] = neighbor_temperatures[0];
+                printf("%f\n", neighbor_temperatures[0]);
+
+                send_buf[5] = neighbor_temperatures[1];
+                printf("%f\n", neighbor_temperatures[1]);
+
+                send_buf[6] = neighbor_temperatures[2];
+                printf("%f\n", neighbor_temperatures[2]);
+
+                send_buf[7] = neighbor_temperatures[3];
+                printf("%f\n", neighbor_temperatures[3]);
+
+
+
+
+                
                 MPI_Request sender;
-                MPI_Isend(package_buffer, 1, MPI_DOUBLE, base_station_id, REPORT_BASE, MPI_COMM_WORLD, &sender);
+                MPI_Isend(send_buf, 8, MPI_DOUBLE, base_station_id, REPORT_BASE, MPI_COMM_WORLD, &sender);
                 // MPI_Wait(&node_send_requests[rank], MPI_STATUS_IGNORE);
-
+                printf("[Rank %d]   Sent to chief\n", rank);
                 // node_request_exclusive_lock = base_station_id;
                 // MPI_Bcast(&node_request_exclusive_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
                 // printf("[Rank %d]   node_request_exclusive_lock reset to %d\n", rank, node_request_exclusive_lock);
