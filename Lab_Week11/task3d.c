@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
 			if(i%10 == 0)
 				printf("\n");
 			printf("%d\t", data[i]);
-			file_append (data[i])
+			file_append (data[i]);
 		}
 		printf("\n");
 	}
