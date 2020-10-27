@@ -46,9 +46,11 @@
 #define ROWS 2                // The number of rows of nodes
 #define COLUMNS 2             // The number of columns of nodes
 #define SERVER_ID 0           // The rank of the server node
-#define TOLERANCE 5
-#define GET_TEMPS 1 // The tag for a node asking for its neighbours' temperatures
-#define GIVE_TEMPS 2 // The tag for a node giving its temperature
+#define TOLERANCE 5           // The difference temperatures can be apart while being considered as similar
+#define GET_TEMPS 1           // The tag for a node asking for its neighbours' temperatures
+#define GIVE_TEMPS 2          // The tag for a node giving its temperature
+#define REPORT_BASE 3         // The tag for a node reporting to base
+#define SHUTDOWN 10           // The tag the server uses to disable all nodes and finalise operation
 // Server headers
 
 struct Sat_Cache // The structure of the satellite cache
@@ -186,6 +188,7 @@ int main(int argc, char *argv[])
                 printf("[Rank %d]   Sending requests to neighbouring ranks...\n", rank);
 
                 MPI_Request node_recv_requests[4]; // Requests for all the receives
+                
                 int valid_neighbours = 0;          //  Increment this by one for eah valid neighbour found; to be used as an index
 
                 for (int iterator = 0; iterator < 4; ++iterator)
@@ -206,32 +209,34 @@ int main(int argc, char *argv[])
                     }
                 }
 
-                usleep(INTERVAL);  // Sleep so it doesn't rapid-fire generate temperatures.  Used here, it doubles as a timeout
+                usleep(INTERVAL); // Sleep so it doesn't rapid-fire generate temperatures.  Used here, it doubles as a timeout
                 // MPI_TEST HERE
-                int lost_values = 0;  // Stores the number of timed out requests
+                int lost_values = 0; // Stores the number of timed out requests
                 for (int i = 0; i < valid_neighbours; i++)
                 {
                     int is_complete;
-                    MPI_Test( &node_recv_requests[i], &is_complete , MPI_STATUS_IGNORE);  // Check if each response has come in
-                    if (lost_values == 0){
+                    MPI_Test(&node_recv_requests[i], &is_complete, MPI_STATUS_IGNORE); // Check if each response has come in
+                    if (is_complete == 0)
+                    {
                         // Destroy the request (timeout)
-                        MPI_Cancel( &node_recv_requests[i]);
-                        MPI_Request_free( &node_recv_requests[i]);
+                        MPI_Cancel(&node_recv_requests[i]);
+                        MPI_Request_free(&node_recv_requests[i]);
                     }
-                    lost_values += 1 - is_complete;  // +1 if a fail, +0 on success
+                    lost_values += 1 - is_complete; // +1 if a fail, +0 on success
                 }
-                if (lost_values > 0){
-                    continue;  // Timeout, skip
+                if (lost_values > 0)
+                {
+                    continue; // Timeout, skip
                 }
 
-                int num_found = 0;  // Notify base if this is two or more
+                int num_found = 0; // Notify base if this is two or more
                 for (int i = 0; i < valid_neighbours; i++)
                 {
                     int target_rank_temp = neighbor_temperatures[i];
                     int temperature_difference = abs((target_rank_temp - node_temperature));
                     if (temperature_difference <= TOLERANCE)
                     {
-                        num_found ++;  // Within range
+                        num_found++; // Within range
                     }
                 }
                 // Notify base
@@ -240,7 +245,7 @@ int main(int argc, char *argv[])
                 MPI_Pack(&report, 1, Node_Report, package_buffer, 100, &pack_size, MPI_COMM_WORLD);
 
                 MPI_Request sender;
-                MPI_Isend(package_buffer, 1, MPI_DOUBLE, base_station_id, 0, MPI_COMM_WORLD, &sender);
+                MPI_Isend(package_buffer, 1, MPI_DOUBLE, base_station_id, REPORT_BASE, MPI_COMM_WORLD, &sender);
                 // MPI_Wait(&node_send_requests[rank], MPI_STATUS_IGNORE);
 
                 // node_request_exclusive_lock = base_station_id;
@@ -251,22 +256,26 @@ int main(int argc, char *argv[])
             for (int iterator = 0; iterator < 4; ++iterator)
             {
                 int target_rank = neighbor_ranks[iterator];
-                int buffer[4] = {0};
+                int recv = 0;
                 // MPI_Irecv( buffer, 1, MPI_INT, target_rank, 1, MPI_COMM_WORLD, &request);
-                MPI_Irecv(buffer, 1, MPI_INT, target_rank, MPI_ANY_TAG, MPI_COMM_WORLD, &node_recv_requests[target_rank]);
+                MPI_Request test;
+                MPI_Irecv(&recv, 1, MPI_INT, target_rank, GET_TEMPS, MPI_COMM_WORLD, &test);
+
                 // MPI_Wait(&node_requests[target_rank], &node_status[target_rank]);
-                if (buffer[0] == 1)
+                if (recv == 1)
                 {
                     printf("[Rank %d]   Sending my temperature: %f\n", rank, rank_temperature_data[0]);
-                    MPI_Isend(rank_temperature_data, 1, MPI_DOUBLE, target_rank, 0, MPI_COMM_WORLD, &node_send_requests[target_rank]);
+                    MPI_Request send_temp;
+
+                    MPI_Isend(rank_temperature_data, 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &send_temp);
                     // MPI_Wait(&node_requests[target_rank], &node_status[target_rank]);
                 }
             }
         } while (true);
 
         fflush(stdout);
-        MPI_Comm_free(&comm2D);
     }
+    MPI_Comm_free(&comm2D);
 
     MPI_Finalize();
     return 0;
