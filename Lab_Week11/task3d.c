@@ -30,6 +30,9 @@ int main(int argc, char* argv[])
 	int currentLevel = 0;	// current level of tree
 	int maxLevel = 0;	// maximum level of tree = LOG2 (number of Processors)
 
+	struct timeval start, middle, stop;
+	double time_taken; 
+
 	int pivot = 0;		// middle point of data array
 	int length = 0;		// length of data array
 	int rightLength = 0;	// length of child node data array
@@ -135,7 +138,7 @@ int main(int argc, char* argv[])
     printf("Time taken: %lu microseconds\n", (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec);
     printf("Comp time taken: %lu microseconds\n", (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec);
     printf("Time in seconds: %f\n", max*1e-6);
-	
+
 	// Root node prints out the sorted data
 	if(myRank == 0){
 		printf("Sorted Data: \n");

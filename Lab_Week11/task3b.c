@@ -24,7 +24,8 @@ int main(void)
 {
 	int data[MAXARRAY];
 	int i = 0;
-
+	struct timeval start, middle, stop;
+	double time_taken; 
     gettimeofday(&start, NULL);
 
 	// Load random data into the array
