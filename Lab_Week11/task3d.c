@@ -9,11 +9,14 @@
 #include <stdlib.h>
 #include <math.h>
 #include <mpi.h>
+#include <time.h>
+#include <sys/time.h>
 
 // Define the size of data
-#define N 1000
+#define N 10000
 
 // Function Prototype
+void file_append(int out);
 void mergeSort(int* data, int startPoint, int endPoint); 
 void merge(int *A, int sizeA, int *B, int sizeB);
 
@@ -35,11 +38,14 @@ int main(int argc, char* argv[])
 	int myRank;	// Processor's rank
 	MPI_Status status;	
 
+    gettimeofday(&start, NULL);
+
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD,&p);
 	MPI_Comm_rank(MPI_COMM_WORLD,&myRank);
 	
-	
+    gettimeofday(&middle, NULL);
+
 	if(myRank == 0){								
 		// Root Node:
 		maxLevel = log ((double)p) / log(2.00);	// Calculate the maximum level of binary tree
@@ -122,6 +128,14 @@ int main(int argc, char* argv[])
 		}
 	}
 	
+	gettimeofday(&stop, NULL);
+    int max, comp;
+    max = (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec;
+    comp = (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec;
+    printf("Time taken: %lu microseconds\n", (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec);
+    printf("Comp time taken: %lu microseconds\n", (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec);
+    printf("Time in seconds: %f\n", max*1e-6);
+	
 	// Root node prints out the sorted data
 	if(myRank == 0){
 		printf("Sorted Data: \n");
@@ -129,6 +143,7 @@ int main(int argc, char* argv[])
 			if(i%10 == 0)
 				printf("\n");
 			printf("%d\t", data[i]);
+			file_append (data[i])
 		}
 		printf("\n");
 	}
@@ -188,4 +203,20 @@ void merge(int *A, int sizeA, int *B, int sizeB)
 	// Free memory of C
 	free(C);
 }
+
+//File output:
+void file_append (int out){
+	FILE *output;
+	output = fopen("./task_3d_output.txt", "a");
+
+	if(output == NULL){
+		printf("ERROR");
+		exit(1);
+	}
+
+	fprintf(output, "%d\n", out);
+	fclose(output);
+
+}
+
 // End of function merge

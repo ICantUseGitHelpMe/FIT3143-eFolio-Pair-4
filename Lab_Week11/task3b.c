@@ -10,11 +10,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 
 // Data
-#define MAXARRAY 1000
+#define MAXARRAY 10000
 
 // Function prototype
+void file_append(int out);
 void mergeSort(int[], int, int);
 
 // Main program
@@ -22,6 +24,8 @@ int main(void)
 {
 	int data[MAXARRAY];
 	int i = 0;
+
+    gettimeofday(&start, NULL);
 
 	// Load random data into the array
 	// Note: Time(NULL) function is not used here.
@@ -40,15 +44,26 @@ int main(void)
 	}
 	printf("\n");
 
+    gettimeofday(&middle, NULL);
+
 	// Call the merge sort function
 	mergeSort(data, 0, MAXARRAY - 1);
 
+	gettimeofday(&stop, NULL);
+    int max, comp;
+    max = (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec;
+    comp = (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec;
+    printf("Time taken: %lu microseconds\n", (stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec);
+    printf("Comp time taken: %lu microseconds\n", (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec);
+    printf("Time in seconds: %f\n", max*1e-6);
+	
 	// Print data after sorting
 	printf("\n");
 	printf("After sorting using Mergesort:\n");
 	for(i = 0; i < MAXARRAY; i++)
 	{
 		printf(" %d", data[i]);
+		file_append(data[i]);
 	}
 	printf("\n");
 
@@ -104,4 +119,19 @@ void mergeSort(int inputData[], int startPoint, int endPoint)
 			inputData[i + startPoint] = working[merge1++];
 		}
 	}
+}
+
+//File output:
+void file_append (int out){
+	FILE *output;
+	output = fopen("./task_3b_output.txt", "a");
+
+	if(output == NULL){
+		printf("ERROR");
+		exit(1);
+	}
+
+	fprintf(output, "%d\n", out);
+	fclose(output);
+
 }
