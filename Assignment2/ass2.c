@@ -214,13 +214,15 @@ int main(int argc, char *argv[])
                 // MPI_TEST HERE
                 int lost_values = 0; // Stores the number of timed out requests
                 // printf("[Rank %d]   SAbout to almost send\n", rank);
+                printf("[Rank %d]   pre recv\n", rank);
 
                 for (int i = 0; i < valid_neighbours; i++)
                 {
-                    int is_complete = -1;
-
+                    int is_complete = 0;
+                    printf("[Rank %d]   pre test\n", rank);
+                    //TODO: why this crash
                     MPI_Test(&node_recv_requests[i], &is_complete, MPI_STATUS_IGNORE); // Check if each response has come in
-                    // printf("[Rank %d]   checking biz %d\n", rank, is_complete);
+                    printf("[Rank %d]   checking biz %d\n", rank, is_complete);
 
                     if (is_complete == 0)
                     {
@@ -230,11 +232,13 @@ int main(int argc, char *argv[])
                     }
                     lost_values += 1 - is_complete; // +1 if a fail, +0 on success
                 }
+                printf("[Rank %d]   lost vals %d\n", rank, lost_values);
+
                 if (lost_values > 0)
                 {
                     continue; // Timeout, skip
                 }
-                // printf("[Rank %d]   SsssssAbout to almost send\n", rank);
+                printf("[Rank %d]   SsssssAbout to almost send\n", rank);
 
                 int num_found = 0; // Notify base if this is two or more
                 for (int i = 0; i < valid_neighbours; i++)
@@ -259,7 +263,7 @@ int main(int argc, char *argv[])
                     NeighbourT3
                     NeighbourT4
                 */
-                // printf("[Rank %d]   Sending to chief\n", rank);
+                printf("[Rank %d]   Sending to chief\n", rank);
                 double send_buf[8];
                 // printf("___________________________\n");
 
@@ -289,7 +293,7 @@ int main(int argc, char *argv[])
                 MPI_Request sender;
                 MPI_Isend(send_buf, 8, MPI_DOUBLE, base_station_id, REPORT_BASE, MPI_COMM_WORLD, &sender);
                 // MPI_Wait(&node_send_requests[rank], MPI_STATUS_IGNORE);
-                // printf("[Rank %d]   Sent to chief\n", rank);
+                printf("[Rank %d]   Sent to chief\n", rank);
                 // node_request_exclusive_lock = base_station_id;
                 // MPI_Bcast(&node_request_exclusive_lock, 1, MPI_INT, rank, MPI_COMM_WORLD);
                 // printf("[Rank %d]   node_request_exclusive_lock reset to %d\n", rank, node_request_exclusive_lock);
