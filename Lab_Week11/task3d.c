@@ -41,13 +41,13 @@ int main(int argc, char* argv[])
 	int myRank;	// Processor's rank
 	MPI_Status status;	
 
-    gettimeofday(&start, NULL);
+	gettimeofday(&start, NULL);
+
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD,&p);
 	MPI_Comm_rank(MPI_COMM_WORLD,&myRank);
 	
-    gettimeofday(&middle, NULL);
 
 	if(myRank == 0){								
 		// Root Node:
@@ -59,16 +59,17 @@ int main(int argc, char* argv[])
 		for(i = 0; i<N;i++)							
 			data[i] = rand()%100;
 
-		printf("\n-----------------------------------------------------------------------------\n");
-		printf("Unsorted Data: \n");
-		for(i = 0; i<N; i++){	// Prints out unsorted data value
-			if(i%10 == 0)	// 10 elements in a row
-				printf("\n");
-			printf("%d\t",data[i]);
-		}
-		printf("\n-----------------------------------------------------------------------------\n");
+		// printf("\n-----------------------------------------------------------------------------\n");
+		// printf("Unsorted Data: \n");
+		// for(i = 0; i<N; i++){	// Prints out unsorted data value
+		// 	if(i%10 == 0)	// 10 elements in a row
+		// 		printf("\n");
+		// 	printf("%d\t",data[i]);
+		// }
+		// printf("\n-----------------------------------------------------------------------------\n");
 	}
 
+    gettimeofday(&middle, NULL);
 	// Broadcast maxLevel to all other processors
 	MPI_Bcast(&maxLevel, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	
@@ -139,17 +140,17 @@ int main(int argc, char* argv[])
     printf("Comp time taken: %lu microseconds\n", (stop.tv_sec - middle.tv_sec) * 1000000 + stop.tv_usec - middle.tv_usec);
     printf("Time in seconds: %f\n", max*1e-6);
 
-	// Root node prints out the sorted data
-	if(myRank == 0){
-		printf("Sorted Data: \n");
-		for(i = 0; i<length;i++){
-			if(i%10 == 0)
-				printf("\n");
-			printf("%d\t", data[i]);
-			file_append (data[i]);
-		}
-		printf("\n");
-	}
+	// // Root node prints out the sorted data
+	// if(myRank == 0){
+	// 	printf("Sorted Data: \n");
+	// 	for(i = 0; i<length;i++){
+	// 		if(i%10 == 0)
+	// 			printf("\n");
+	// 		printf("%d\t", data[i]);
+	// 		file_append (data[i]);
+	// 	}
+	// 	printf("\n");
+	// }
 
 	MPI_Finalize(); // Finalize MPI
 	free(data);	// Free the data buffer

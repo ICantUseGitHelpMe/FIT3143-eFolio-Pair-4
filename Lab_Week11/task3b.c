@@ -26,7 +26,8 @@ int main(void)
 	int i = 0;
 	struct timeval start, middle, stop;
 	double time_taken; 
-    gettimeofday(&start, NULL);
+    
+	gettimeofday(&start, NULL);
 
 	// Load random data into the array
 	// Note: Time(NULL) function is not used here.
@@ -38,12 +39,12 @@ int main(void)
 	}
 
 	// Print data before sorting
-	printf("Before Sorting:\n");
-	for(i = 0; i < MAXARRAY; i++)
-	{
-		printf(" %d", data[i]);
-	}
-	printf("\n");
+	// printf("Before Sorting:\n");
+	// for(i = 0; i < MAXARRAY; i++)
+	// {
+	// 	printf(" %d", data[i]);
+	// }
+	// printf("\n");
 
     gettimeofday(&middle, NULL);
 
@@ -59,14 +60,14 @@ int main(void)
     printf("Time in seconds: %f\n", max*1e-6);
 	
 	// Print data after sorting
-	printf("\n");
-	printf("After sorting using Mergesort:\n");
+	// printf("\n");
+	// printf("After sorting using Mergesort:\n");
 	for(i = 0; i < MAXARRAY; i++)
 	{
-		printf(" %d", data[i]);
+		// printf(" %d", data[i]);
 		file_append(data[i]);
 	}
-	printf("\n");
+	// printf("\n");
 
 	return 0;
 }
