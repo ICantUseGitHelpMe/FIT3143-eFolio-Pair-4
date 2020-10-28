@@ -88,14 +88,14 @@ int main(int argc, char *argv[])
     char package_buffer[100];
     struct Node_Report report;
     MPI_Datatype Node_Report;
-    MPI_Request request= MPI_REQUEST_NULL;
+    MPI_Request request = MPI_REQUEST_NULL;
     MPI_Comm comm2D;
 
     // Initialize MPI environment
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN);  // Return on errors, don'r crash out
+    MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN); // Return on errors, don'r crash out
     wsn_size = size - 1;
 
     // Handle command line inputs
@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
 
                 // printf("[Rank %d]   Sending requests to neighbouring ranks...\n", rank);
 
-                MPI_Request node_recv_requests[4];  // Requests for all the receives
+                MPI_Request node_recv_requests[4]; // Requests for all the receives
                 node_recv_requests[0] = MPI_REQUEST_NULL;
                 node_recv_requests[1] = MPI_REQUEST_NULL;
                 node_recv_requests[2] = MPI_REQUEST_NULL;
@@ -217,33 +217,30 @@ int main(int argc, char *argv[])
                 int lost_values = 0; // Stores the number of timed out requests
                 // printf("[Rank %d]   SAbout to almost send\n", rank);
                 // printf("[Rank %d]   pre recv\n", rank);
-                int is_complete = 0;
 
-                MPI_Testall(valid_neighbours, node_recv_requests, &is_complete, MPI_STATUSES_IGNORE);
-                if (is_complete == 0)
+                // MPI_Testall(valid_neighbours, node_recv_requests, &is_complete, MPI_STATUSES_IGNORE);
+
+                for (int i = 0; i < valid_neighbours; i++)
                 {
+                    // printf("[Rank %d]   pre test %d, %d, %d\n", rank, i, valid_neighbours, node_recv_requests[i] == MPI_REQUEST_NULL);
+                    int is_complete = 0;
+                    MPI_Test(&node_recv_requests[i], &is_complete, MPI_STATUS_IGNORE);
 
-
-                    for (int i = 0; i < valid_neighbours; i++)
+                    //TODO: why this crash
+                    if (is_complete == 0)
                     {
-                        // printf("[Rank %d]   pre test %d, %d, %d\n", rank, i, valid_neighbours, node_recv_requests[i] == MPI_REQUEST_NULL);
-
-                        //TODO: why this crash
-                        // static inline int removeReq(MPI_Request req)
+                        // if (neighbor_temperatures[i] < 1)
                         // {
-                        // printf("%df before cancel\n", rank);
-                        // MPI_Cancel(&node_recv_requests[i]);
-                        // // printf("%dfAfter cancel\n", rank);
-                        // MPI_Request_free(&node_recv_requests[i]);
-                        // printf("%dfAfter free\n", rank);
-                        //     return 0;
+                        //     printf("BREAK\n");
+                        //     break; // Still at default, left
                         // }
-                        if (neighbor_temperatures[i] < 1){
-                            break; // Still at default, left
-                        }
-                        // printf("%df pre rem\n", rank);
-                        // printf("Rank %df checit %ld\n", rank, node_recv_requests[i]);
 
+                        // if (neighbor_temperatures[i] > -0.1 && neighbor_temperatures[i] < 0.1)
+                        // {
+                        //     lost_values += 1 ; // +1 if a fail, +0 on success
+                        //     break;
+                        // }
+                        // TODO neighbor_temperatures[i] and or node_recv_requests[i] is breaking this
                         printf("%d TESTEST temp %f valids %d\n", rank, neighbor_temperatures[i], valid_neighbours);
 
                         int testi = removeReq(node_recv_requests[i], rank);
@@ -253,18 +250,17 @@ int main(int argc, char *argv[])
 
                         // Destroy the request (timeout)
 
-                        lost_values += 1 - is_complete; // +1 if a fail, +0 on success
+                        lost_values += 1; // +1 if a fail, +0 on success
                     }
                 }
+
                 // printf("[Rank %d]   lost vals %d\n", rank,ssss lost_values);
 
                 if (lost_values > 0)
                 {
                     continue; // Timeout, skip
-                }                if (is_complete == 0)
-                {
-                    continue; // Timeout, skip
                 }
+
                 // printf("[Rank %d]   SsssssAbout to almost send\n", rank);
 
                 int num_found = 0; // Notify base if this is two or more
@@ -331,7 +327,7 @@ int main(int argc, char *argv[])
                 int target_rank = neighbor_ranks[iterator];
                 int recv = 0;
                 // MPI_Irecv( buffer, 1, MPI_INT, target_rank, 1, MPI_COMM_WORLD, &request);
-                MPI_Request test= MPI_REQUEST_NULL;
+                MPI_Request test = MPI_REQUEST_NULL;
                 MPI_Irecv(&recv, 1, MPI_INT, target_rank, GET_TEMPS, MPI_COMM_WORLD, &test);
                 usleep(INTERVAL / 4);
                 int check = 0;
@@ -348,9 +344,9 @@ int main(int argc, char *argv[])
                 if (recv == 1)
                 {
                     // printf("[Rank %d]   Sending my temperature: %f\n", rank, rank_temperature_data[0]);
-                    MPI_Request send_temp= MPI_REQUEST_NULL;
+                    MPI_Request send_temp = MPI_REQUEST_NULL;
 
-                    MPI_Isend(rank_temperature_data, 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &send_temp);
+                    MPI_Isend(&node_temperature, 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &send_temp);
                     // MPI_Wait(&node_requests[target_rank], &node_status[target_rank]);
                 }
             }
