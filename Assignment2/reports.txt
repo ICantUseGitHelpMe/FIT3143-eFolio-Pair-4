@@ -1,0 +1,70 @@
+Message duration: 27ms  |  X: 3  |  Y: 2  |  Temperature: 83.000000  |  Node Timestamp: 52801-12-18 01:15:32 AEDT  
+  Satellite Temperature: 47.875000  |  Satellite Timestamp: 2020-10-31 10:49:19 AEDT
+Neighbour 0 temp: 71.500000
+Neighbour 1 temp: 84.000000
+Neighbour 2 temp: 53.375000
+Neighbour 3 temp: 77.250000
+
+=============
+
+Message duration: 368ms  |  X: 4  |  Y: 3  |  Temperature: 81.000000  |  Node Timestamp: 52801-12-18 01:10:02 AEDT  
+  Satellite Temperature: NOT FOUND  |  Satellite Timestamp: NOT FOUND
+Neighbour 0 temp: 78.000000
+Neighbour 1 temp: 80.031250
+
+=============
+
+Message duration: 25ms  |  X: 4  |  Y: 0  |  Temperature: 82.000000  |  Node Timestamp: 52801-12-18 04:57:50 AEDT  
+  Satellite Temperature: NOT FOUND  |  Satellite Timestamp: NOT FOUND
+Neighbour 0 temp: 84.500000
+Neighbour 1 temp: 84.000000
+
+=============
+
+Message duration: 639ms  |  X: 3  |  Y: 1  |  Temperature: 82.000000  |  Node Timestamp: 52801-12-18 06:51:40 AEDT  
+  Satellite Temperature: 62.000000  |  Satellite Timestamp: 2020-10-31 10:49:40 AEDT
+Neighbour 0 temp: 77.000000
+Neighbour 1 temp: 70.000000
+Neighbour 2 temp: 80.000000
+
+=============
+
+Message duration: 25ms  |  X: 3  |  Y: 0  |  Temperature: 84.000000  |  Node Timestamp: 52801-12-18 10:12:49 AEDT  
+  Satellite Temperature: 29.375000  |  Satellite Timestamp: 2020-10-31 10:49:52 AEDT
+Neighbour 0 temp: 80.250000
+Neighbour 1 temp: 80.000000
+Neighbour 2 temp: 59.000000
+
+=============
+
+Message duration: 23ms  |  X: 3  |  Y: 0  |  Temperature: 81.000000  |  Node Timestamp: 52801-12-18 22:38:59 AEDT  
+  Satellite Temperature: 55.000000  |  Satellite Timestamp: 2020-10-31 10:50:37 AEDT
+Neighbour 0 temp: 83.000000
+Neighbour 1 temp: 79.000000
+Neighbour 2 temp: 61.000000
+
+=============
+
+Message duration: 22ms  |  X: 0  |  Y: 0  |  Temperature: 83.000000  |  Node Timestamp: 52801-12-19 02:10:16 AEDT  
+  Satellite Temperature: 58.000000  |  Satellite Timestamp: 2020-10-31 10:50:49 AEDT
+Neighbour 0 temp: 81.562500
+Neighbour 1 temp: 78.250000
+
+=============
+
+Message duration: 19ms  |  X: 3  |  Y: 0  |  Temperature: 84.750000  |  Node Timestamp: 52801-12-19 02:30:57 AEDT  
+  Satellite Temperature: 61.250000  |  Satellite Timestamp: 2020-10-31 10:50:51 AEDT
+Neighbour 0 temp: 83.000000
+Neighbour 1 temp: 69.000000
+Neighbour 2 temp: 83.500000
+
+=============
+
+Message duration: 26ms  |  X: 4  |  Y: 2  |  Temperature: 81.000000  |  Node Timestamp: 52801-12-19 04:43:10 AEDT  
+  Satellite Temperature: NOT FOUND  |  Satellite Timestamp: NOT FOUND
+Neighbour 0 temp: 65.250000
+Neighbour 1 temp: 82.125000
+Neighbour 2 temp: 78.875000
+
+=============
+
