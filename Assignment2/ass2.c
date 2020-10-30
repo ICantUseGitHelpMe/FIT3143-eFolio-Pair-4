@@ -7,7 +7,7 @@
  * --------------------------------------------------
  * Assignemnt 2
  * mpicc assignment2.c -o ass2_out -lm
- * mpirun -oversubscribe -np 21 ass2_out 4 5
+ * mpirun -oversubscribe -np 21 ass2_out 4 5 10000
  *
  */
 
@@ -23,7 +23,6 @@
 #define SHIFT_ROW 0
 #define SHIFT_COL 1
 #define DISP 1
-#define ITERATIONS 1000       // The number of loops in the server and satellite
 #define INTERVAL 10 * 1000    // How frequently the main processor will check for updates from nodes (in microseconds)
 #define SPLITTER 157          // Divide random numbers by this to make them floats.  This number is a prime
 #define THRESHOLD 80.0f       // The temperature that evokes a positive response (degrees)
@@ -48,9 +47,9 @@ struct Sat_Cache // The structure of the satellite cache
     int rows;                                  // The number of rows in the grid
     int columns;                               // The number of columns in the grid
 };
-int server_control(int nrows, int ncols);
+int server_control(int nrows, int ncols, int iterations);
 void satellite(struct Sat_Cache *Cache);
-void server(struct Sat_Cache *Cache);
+void server(struct Sat_Cache *Cache, int iterations);
 void file_append(char *out);
 
 // Node headers
@@ -97,12 +96,14 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN); // Return on errors, don't crash out
     wsn_size = size - 1;
-
+    int iter_count = 10000;  // Default iteration count
     // Handle command line inputs
-    if (argc == 3)
+    if (argc == 4)
     {
         nrows = atoi(argv[1]);
         ncols = atoi(argv[2]);
+        iter_count = atoi(argv[3]);
+
         dims[0] = nrows; // Number of rows
         dims[1] = ncols; // Number of columns
         base_station_id = nrows * ncols;
@@ -129,25 +130,29 @@ int main(int argc, char *argv[])
     ierr = MPI_Cart_create(MPI_COMM_WORLD, ndims, dims, wrap_around, reorder, &comm2D);
     if (ierr != 0)
         printf("ERROR[%d] creating CART\n", ierr);
-    // MPI_Request node_send_requests[base_station_id], node_recv_requests[base_station_id];
+
     MPI_Status node_status[base_station_id];
     node_request_exclusive_lock = base_station_id;
     srand(time(NULL) + rank); // Seed the random with a unique value
     if (rank == base_station_id)
     {
+        usleep(INTERVAL); // Sleep prior to the beginning of the algorithm, allowing the node's setup message to print before
+
         printf("I am base station - rank:%d. Comm Size: %d: Grid Dimension = [%d x %d] \n", rank, size, dims[0], dims[1]);
 
-        server_control(nrows, ncols);
-        printf("stopping\n");
+        server_control(nrows, ncols, iter_count);
+        printf("100%% Completed\n");
         global_stop = 1; // stop the nodes
 
         // Tell them all to quit
         MPI_Request req_arr[rank];
-        for (int ranks = 0; ranks < rank; ranks++){
-            MPI_Isend( &global_stop, 1, MPI_INT , ranks , SHUTDOWN , MPI_COMM_WORLD , &req_arr[ranks]);
+
+        for (int ranks = 0; ranks < base_station_id; ranks++)
+        {
+            MPI_Isend(&global_stop, 1, MPI_INT, ranks, SHUTDOWN, MPI_COMM_WORLD, &req_arr[ranks]);
         }
         // Wait for them to quit
-        MPI_Waitall( rank, req_arr, MPI_STATUSES_IGNORE);
+        MPI_Waitall(base_station_id, req_arr, MPI_STATUSES_IGNORE);
     }
     else
     {
@@ -170,17 +175,15 @@ int main(int argc, char *argv[])
 
         // Prepare to stop
         MPI_Request stop_req = MPI_REQUEST_NULL;
-        MPI_Irecv( &global_stop, 1 , MPI_INT , base_station_id, SHUTDOWN , MPI_COMM_WORLD, &stop_req);
+        MPI_Irecv(&global_stop, 1, MPI_INT, base_station_id, SHUTDOWN, MPI_COMM_WORLD, &stop_req);
 
         do
         {
 
             // Check if we should stop
             int test_req = 0;
-            MPI_Test( &stop_req , &test_req , MPI_STATUS_IGNORE);
+            MPI_Test(&stop_req, &test_req, MPI_STATUS_IGNORE);
             global_stop = test_req;
-
-
             // Get current time
             struct timespec t_spec;
             clock_gettime(CLOCK_REALTIME, &t_spec);
@@ -356,7 +359,7 @@ int main(int argc, char *argv[])
 }
 
 // Server code
-int server_control(int nrows, int ncols)
+int server_control(int nrows, int ncols, int iterations)
 {
 
     struct Sat_Cache Cache;
@@ -371,7 +374,7 @@ int server_control(int nrows, int ncols)
     Cache.columns = ncols;
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, (void *)satellite, &Cache); // Activate the satellite.  We pass the address of the cache as this is all the thread takes
-    server(&Cache);
+    server(&Cache, iterations);
     pthread_join(thread_id, NULL);
 
     return 0;
@@ -381,7 +384,6 @@ void satellite(struct Sat_Cache *Cache)
 {
     // The satellite will only write to coordinate array, temperature array, and the timestamp array.
     // It will read the processing variable
-    printf("Satellite Ready\n");
     Cache->index = 0; // This keeps track of the index of the memory array
 
     while (Cache->process) // Continue while the processing variable is true
@@ -401,17 +403,16 @@ void satellite(struct Sat_Cache *Cache)
     }
 }
 
-void server(struct Sat_Cache *Cache)
+void server(struct Sat_Cache *Cache, int iterations)
 {
     // The server will write to the processing variable
     // It will only read from the coordinate array, temperature array, and the timestamp array.
-
-    printf("Server Ready\n");
-    for (int counter = 0; counter < ITERATIONS; counter++) // This is the mainloop
+    printf("Base Station Initialised\n");
+    for (int counter = 0; counter < iterations; counter++) // This is the mainloop
     {
-        if (counter % 100 == 0)
+        if (counter % (iterations / 10) == 0)
         {
-            printf("%d\n", counter);
+            printf("%d%% Completed\n", (int)((float)counter / iterations * 100));
         }
         // MPI_Request sender;
         // MPI_Isend(send_buf, 8, MPI_DOUBLE, base_station_id, REPORT_BASE, MPI_COMM_WORLD, &sender);
@@ -481,7 +482,7 @@ void server(struct Sat_Cache *Cache)
                 strftime(sat_timestamp, sizeof(sat_timestamp), "%Y-%m-%d %H:%M:%S %Z", &tolocal);
 
                 char buf[256];
-                sprintf(buf, "Message duration: %lums  |  X: %d  |  Y: %d  |  Temperature: %f  |  Node Timestamp: %s  \n  Satellite Temperature: %f  |  Satellite Timestamp: %s\n\n\n\n", now - timestamp, Cache->coordinate_array[index][0], Cache->coordinate_array[index][1], temperature, readable_timestamp, Cache->temperature_array[index], sat_timestamp);
+                sprintf(buf, "Message duration: %lums  |  X: %d  |  Y: %d  |  Temperature: %f  |  Node Timestamp: %s  \n  Satellite Temperature: %f  |  Satellite Timestamp: %s\n=======\n", now - timestamp, Cache->coordinate_array[index][0], Cache->coordinate_array[index][1], temperature, readable_timestamp, Cache->temperature_array[index], sat_timestamp);
                 found_entry = true;
                 file_append(buf); // Write to file
                 break;            // Don't continue, in case it finds an older (outdated) response that we don't want to use
