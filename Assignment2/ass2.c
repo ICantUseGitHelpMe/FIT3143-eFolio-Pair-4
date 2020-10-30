@@ -186,11 +186,11 @@ int main(int argc, char *argv[])
 
                 // printf("[Rank %d]   Sending requests to neighbouring ranks...\n", rank);
 
-                MPI_Request node_recv_requests[4]; // Requests for all the receives
-                node_recv_requests[0] = MPI_REQUEST_NULL;
-                node_recv_requests[1] = MPI_REQUEST_NULL;
-                node_recv_requests[2] = MPI_REQUEST_NULL;
-                node_recv_requests[3] = MPI_REQUEST_NULL;
+                // MPI_Request node_recv_requests[4]; // Requests for all the receives
+                MPI_Request node_recv_requests0 = MPI_REQUEST_NULL;
+                MPI_Request node_recv_requests1 = MPI_REQUEST_NULL;
+                MPI_Request node_recv_requests2 = MPI_REQUEST_NULL;
+                MPI_Request node_recv_requests3 = MPI_REQUEST_NULL;
 
                 int valid_neighbours = 0; //  Increment this by one for eah valid neighbour found; to be used as an index
 
@@ -206,8 +206,22 @@ int main(int argc, char *argv[])
                         int info = 1; // The data we send
                         MPI_Request ask_temp;
                         MPI_Isend(&info, 1, MPI_INT, target_rank, GET_TEMPS, MPI_COMM_WORLD, &ask_temp);
+                        switch (valid_neighbours)
+                        {
+                        case 0:
+                            MPI_Irecv(&neighbor_temperatures[valid_neighbours], 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &node_recv_requests0);
+                            break;
+                        case 1:
+                            MPI_Irecv(&neighbor_temperatures[valid_neighbours], 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &node_recv_requests1);
+                            break;
+                        case 2:
+                            MPI_Irecv(&neighbor_temperatures[valid_neighbours], 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &node_recv_requests2);
+                            break;
+                        case 3:
+                            MPI_Irecv(&neighbor_temperatures[valid_neighbours], 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &node_recv_requests3);
+                            break;
+                        }
 
-                        MPI_Irecv(&neighbor_temperatures[valid_neighbours], 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &node_recv_requests[valid_neighbours]);
                         valid_neighbours++; // Increment as we have found a target (MUST BE AFTER IRECV)
                     }
                 }
@@ -219,21 +233,43 @@ int main(int argc, char *argv[])
                 // printf("[Rank %d]   pre recv\n", rank);
 
                 // MPI_Testall(valid_neighbours, node_recv_requests, &is_complete, MPI_STATUSES_IGNORE);
-
+                printf(" rank %d, neighbours: %d \n", rank, valid_neighbours);
                 for (int i = 0; i < valid_neighbours; i++)
                 {
+                    MPI_Request viewed_req;
+                    switch (valid_neighbours)
+                    {
+                    case 0:
+                        viewed_req = node_recv_requests0;
+                        break;
+                    case 1:
+                        viewed_req = node_recv_requests1;
+                        break;
+                    case 2:
+                        viewed_req = node_recv_requests2;
+                        break;
+                    case 3:
+                        viewed_req = node_recv_requests3;
+                        break;
+                    }
+
                     // printf("[Rank %d]   pre test %d, %d, %d\n", rank, i, valid_neighbours, node_recv_requests[i] == MPI_REQUEST_NULL);
                     int is_complete = 0;
-                    MPI_Test(&node_recv_requests[i], &is_complete, MPI_STATUS_IGNORE);
+                    printf(" rank %d, I: %d thing \n", rank, i);
+                    printf(" rank %d, node_recv_requests thing %d\n", rank, viewed_req);
+
+                    MPI_Test(&viewed_req, &is_complete, MPI_STATUS_IGNORE);
+                    printf(" rank %d, posttest\n", rank);
 
                     //TODO: why this crash
                     if (is_complete == 0)
                     {
-                        // if (neighbor_temperatures[i] < 1)
-                        // {
-                        //     printf("BREAK\n");
-                        //     break; // Still at default, left
-                        // }
+                        if (neighbor_temperatures[i] < 1)
+                        {
+                            printf("BREAK\n");
+                            lost_values += 1; // +1 if a fail, +0 on success
+                            break;            // Still at default, left
+                        }
 
                         // if (neighbor_temperatures[i] > -0.1 && neighbor_temperatures[i] < 0.1)
                         // {
@@ -241,9 +277,9 @@ int main(int argc, char *argv[])
                         //     break;
                         // }
                         // TODO neighbor_temperatures[i] and or node_recv_requests[i] is breaking this
-                        printf("%d TESTEST temp %f valids %d\n", rank, neighbor_temperatures[i], valid_neighbours);
+                        printf("%d TESTEST temp %f valids %d\n", rank, viewed_req, valid_neighbours);
 
-                        int testi = removeReq(node_recv_requests[i], rank);
+                        int testi = removeReq(viewed_req, rank);
                         printf("%d TESTEST2\n", testi);
 
                         // printf("%df post rem\n", rank);
@@ -253,6 +289,7 @@ int main(int argc, char *argv[])
                         lost_values += 1; // +1 if a fail, +0 on success
                     }
                 }
+                printf("___\n");
 
                 // printf("[Rank %d]   lost vals %d\n", rank,ssss lost_values);
 
