@@ -176,12 +176,10 @@ int main(int argc, char *argv[])
         // Prepare to stop
         MPI_Request stop_req = MPI_REQUEST_NULL;
         MPI_Irecv(&global_stop, 1, MPI_INT, base_station_id, SHUTDOWN, MPI_COMM_WORLD, &stop_req);
-        printf("%d  179\n", rank);
         int test_req = 0;
 
         do
         {
-            printf("%d  NKOTB\n", rank);
 
             // Check if we should stop
             MPI_Test(&stop_req, &test_req, MPI_STATUS_IGNORE);
@@ -197,7 +195,6 @@ int main(int argc, char *argv[])
 
             if (node_temperature > THRESHOLD) // If the temperature is above the danger zone
             {
-                printf("%d  199\n", rank);
 
                 // int notify_base[4] = {0, 0, 0, 0};
                 // float neighbor_temperatures[4] = {-1, -1, -1, -1};
@@ -241,15 +238,12 @@ int main(int argc, char *argv[])
                         }
                         if (kill_order == 1)
                         {
-                            printf("%d boutta term Terminate ask%d\n", rank, target_rank);
 
                             MPI_Cancel(&ask_temp);
                             MPI_Request_free(&ask_temp);
-                            printf("%d Terminate ask%d\n", rank, target_rank);
                             continue;
                         }
                         int kill_order_inner = 1;
-                        printf("%d  receiving %d va %d  from %d \n", rank, info, valid_neighbours, target_rank);
                             float test_temp;
 
                         switch (valid_neighbours)
@@ -268,7 +262,6 @@ int main(int argc, char *argv[])
 
                                 if (checkse)
                                 {
-                                    // printf("%d Pre recieve Stat %ld, %f\n", rank, status._ucount, temp0);
 
                                     kill_order_inner = 0; // Disiable the directive to terminate this iteration
                                     break;
@@ -279,14 +272,9 @@ int main(int argc, char *argv[])
 
                                 MPI_Cancel(&node_recv_requests0);
                                 MPI_Request_free(&node_recv_requests0);
-                                printf("%d Terminate rec%d\n", rank, target_rank);
-                                printf("%d boutta term Terminate recv%d,   %f\n", rank, target_rank, test_temp);
-
                                 continue;
                             }
                             temp0 = test_temp;  // Test is complete, assign temperature
-                            printf("%d RECX in loop rec%f, at%d, %d\n", rank, test_temp, valid_neighbours, status._cancelled);
-
                             break;
                         case 1:
 
@@ -306,16 +294,11 @@ int main(int argc, char *argv[])
                             }
                             if (kill_order_inner == 1)
                             {
-                                // printf("%d boutta term Terminate recv%d,   %f\n", rank, target_rank, temp1);
-
                                 MPI_Cancel(&node_recv_requests1);
                                 MPI_Request_free(&node_recv_requests1);
-                                printf("%d Terminate rec%d\n", rank, target_rank);
                                 continue;
                             }
                             temp1 = test_temp;  // Test is complete, assign temperature
-                            printf("%d RECX in loop rec%f, at%d\n", rank, temp1, valid_neighbours);
-
                             break;
                         case 2:
 
@@ -334,17 +317,12 @@ int main(int argc, char *argv[])
                             }
                             if (kill_order_inner == 1)
                             {
-                                // printf("%d boutta term Terminate recv%d,   %f\n", rank, target_rank, temp2);
 
                                 MPI_Cancel(&node_recv_requests2);
                                 MPI_Request_free(&node_recv_requests2);
-                                printf("%d Terminate rec%d\n", rank, target_rank);
                                 continue;
                             }
                             temp2 = test_temp;  // Test is complete, assign temperature
-
-                            printf("%d RECX in loop rec%f, at%d\n", rank, temp2, valid_neighbours);
-
                             break;
                         case 3:
                             MPI_Irecv(&test_temp, 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &node_recv_requests3);
@@ -363,17 +341,12 @@ int main(int argc, char *argv[])
                             }
                             if (kill_order_inner == 1)
                             {
-                                // printf("%d boutta term Terminate recv%d,   %f\n", rank, target_rank, temp3);
 
                                 MPI_Cancel(&node_recv_requests3);
                                 MPI_Request_free(&node_recv_requests3);
-                                printf("%d Terminate rec%d\n", rank, target_rank);
                                 continue;
                             }
                             temp3 = test_temp;  // Test is complete, assign temperature
-
-                            printf("%d RECX in loop rec%f, at%d\n", rank, temp3, valid_neighbours);
-
                             break;
                         }
 
@@ -383,7 +356,6 @@ int main(int argc, char *argv[])
 
                 usleep(INTERVAL);    // Sleep so it doesn't rapid-fire generate temperatures.  Used here, it doubles as a timeout
                 int lost_values = 0; // Stores the number of timed out requests
-                printf("%d  249\n", rank);
                 for (int i = 0; i < valid_neighbours; i++)
                 {
 
@@ -403,12 +375,7 @@ int main(int argc, char *argv[])
                         target_rank_temp = temp3;
                         break;
                     }
-                    printf("%d  REceived %f\n", rank, target_rank_temp);
                 }
-                printf("%d  282\n", rank);
-
-                printf("%d  292\n", rank);
-
                 int num_found = 0; // Notify base if this is two or more
                 for (int i = 0; i < valid_neighbours; i++)
                 {
@@ -434,11 +401,9 @@ int main(int argc, char *argv[])
                         num_found++; // Within range
                     }
                 }
-                printf("%d  319\n", rank);
 
                 if (num_found > 1) // Send if there are 2 or more corroborating nodes
                 {
-                    printf("%d to base\n", rank);
                     // Notify base
                     /* Send:  
                         Time
@@ -457,16 +422,13 @@ int main(int argc, char *argv[])
                     send_buf[2] = coord[1];
                     send_buf[3] = node_temperature;
                     send_buf[4] = temp0;
-                    printf("Tempo rank %d, %f\n", rank, temp0);
                     send_buf[5] = temp1;
                     send_buf[6] = temp2;
                     send_buf[7] = temp3;
 
                     MPI_Request sender = MPI_REQUEST_NULL;
                     MPI_Isend(send_buf, 8, MPI_DOUBLE, base_station_id, REPORT_BASE, MPI_COMM_WORLD, &sender);
-                    // TODO Edit this to loop
                 }
-                printf("%d  349\n", rank);
             }
 
             for (int iterator = 0; iterator < 4; ++iterator)
@@ -474,7 +436,6 @@ int main(int argc, char *argv[])
             {
                 if (neighbor_ranks[iterator] != -2)
                 {
-                    printf("%d  Someboddywassa %d\n", rank, neighbor_ranks[iterator]);
                     int target_rank = neighbor_ranks[iterator];
                     int recv = 0;
                     MPI_Request test;
@@ -493,18 +454,13 @@ int main(int argc, char *argv[])
                     }
                     if (kill_order == 1)
                     {
-                        printf("%d boutta term Terminate temp req%d\n", rank, target_rank);
 
                         MPI_Cancel(&test);
                         MPI_Request_free(&test);
-                        printf("%d Terminate %d\n", rank, target_rank);
                         continue;
                     }
-                    printf("%d  Someboddywassa %d tested%d\n", rank, recv, neighbor_ranks[iterator]);
 
-                    // MPI_Send( &node_temperature , 1 , MPI_DOUBLE , target_rank , GIVE_TEMPS , MPI_COMM_WORLD);
                     MPI_Request send_temp;
-                    printf("%d SENDING %f\n", rank, node_temperature);
                     float temp_var = node_temperature;
                     MPI_Isend(&temp_var, 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &send_temp);
                     int kill_order_inner = 1;
@@ -521,21 +477,14 @@ int main(int argc, char *argv[])
                     }
                     if (kill_order_inner == 1)
                     {
-                        printf("%d boutta term Terminate send%d\n", rank, target_rank);
 
                         MPI_Cancel(&send_temp);
                         MPI_Request_free(&send_temp);
-                        printf("%d Terminate send\n", rank);
                         continue;
                     }
-                    printf("Successfullly sent %f from %d\n", temp_var, rank);
                 }
-                else
-                {
-                    printf("%d  SomeboddyWASNT\n", rank);
-                }
+
             }
-            printf("%d  SomeboddyDONE \n", rank);
 
         } while (test_req == 0);
         MPI_Comm_free(&comm2D);
@@ -690,7 +639,6 @@ void server(struct Sat_Cache *Cache, int iterations)
         char neighbour_buf[128];
         for (int i = 0; i < 4; i++)
         {
-            printf("%f\n", recv_buf[4 + i]);
             if (recv_buf[4 + i] != -1)
             {
                 sprintf(neighbour_buf, "Neighbour %d temp: %f\n", i, recv_buf[4 + i]);
