@@ -138,6 +138,11 @@ int main(int argc, char *argv[])
     {
         usleep(INTERVAL); // Sleep prior to the beginning of the algorithm, allowing the node's setup message to print before
 
+        // Get the start time for reporting:
+        struct timespec t_spec;
+        clock_gettime(CLOCK_REALTIME, &t_spec);
+        unsigned long start_time = (t_spec.tv_nsec + t_spec.tv_sec * 1e9) * 1e-6; // This converts from nanoseconds to miliseconds
+
         printf("I am base station - rank:%d. Comm Size: %d: Grid Dimension = [%d x %d] \n", rank, size, dims[0], dims[1]);
 
         server_control(nrows, ncols, iter_count);
@@ -153,6 +158,12 @@ int main(int argc, char *argv[])
         }
         // Wait for them to quit
         MPI_Waitall(base_station_id, req_arr, MPI_STATUSES_IGNORE);
+
+        // Get the end time for reporting
+        clock_gettime(CLOCK_REALTIME, &t_spec);
+        unsigned long end_time = (t_spec.tv_nsec + t_spec.tv_sec * 1e9) * 1e-6; // This converts from nanoseconds to miliseconds
+
+        printf("This execution of %d nodes too %lums\n", nrows * ncols, end_time - start_time);
     }
     else
     {
@@ -244,7 +255,7 @@ int main(int argc, char *argv[])
                             continue;
                         }
                         int kill_order_inner = 1;
-                            float test_temp;
+                        float test_temp;
 
                         switch (valid_neighbours)
                         {
@@ -274,7 +285,7 @@ int main(int argc, char *argv[])
                                 MPI_Request_free(&node_recv_requests0);
                                 continue;
                             }
-                            temp0 = test_temp;  // Test is complete, assign temperature
+                            temp0 = test_temp; // Test is complete, assign temperature
                             break;
                         case 1:
 
@@ -298,7 +309,7 @@ int main(int argc, char *argv[])
                                 MPI_Request_free(&node_recv_requests1);
                                 continue;
                             }
-                            temp1 = test_temp;  // Test is complete, assign temperature
+                            temp1 = test_temp; // Test is complete, assign temperature
                             break;
                         case 2:
 
@@ -322,11 +333,10 @@ int main(int argc, char *argv[])
                                 MPI_Request_free(&node_recv_requests2);
                                 continue;
                             }
-                            temp2 = test_temp;  // Test is complete, assign temperature
+                            temp2 = test_temp; // Test is complete, assign temperature
                             break;
                         case 3:
                             MPI_Irecv(&test_temp, 1, MPI_DOUBLE, target_rank, GIVE_TEMPS, MPI_COMM_WORLD, &node_recv_requests3);
-
 
                             for (int l = 0; l < 200; l++)
                             {
@@ -346,7 +356,7 @@ int main(int argc, char *argv[])
                                 MPI_Request_free(&node_recv_requests3);
                                 continue;
                             }
-                            temp3 = test_temp;  // Test is complete, assign temperature
+                            temp3 = test_temp; // Test is complete, assign temperature
                             break;
                         }
 
@@ -483,7 +493,6 @@ int main(int argc, char *argv[])
                         continue;
                     }
                 }
-
             }
 
         } while (test_req == 0);
